@@ -267,7 +267,7 @@ fn theme_choices_fit_the_minimum_window_width(cx: &mut TestAppContext) {
     cx.update_window(window, |_, window, cx| {
         window.render_frame(cx);
         let content = window.find("content").bounds();
-        let mut group = window.within("appearance-mode");
+        let group = window.within("appearance-mode");
         for index in 0..3usize {
             let choice = group.find(index).bounds();
             assert!(
