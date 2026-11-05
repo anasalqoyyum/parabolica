@@ -1,7 +1,6 @@
 use std::io;
 use std::path::PathBuf;
 
-use parabolica_domain::jobs::InvalidJobTransition;
 use rusqlite::ErrorCode;
 
 /// A failed storage request. Messages name tables, columns and identifiers but never stored
@@ -25,8 +24,12 @@ pub enum StorageError {
         what: &'static str,
         reason: &'static str,
     },
-    #[error(transparent)]
-    JobTransition(#[from] InvalidJobTransition),
+    /// States are named without their payload, so a stored failure reason never appears here.
+    #[error("job cannot move from {from} to {to}")]
+    JobTransition {
+        from: &'static str,
+        to: &'static str,
+    },
     #[error("stored {column} is not a valid value")]
     InvalidStoredValue { column: &'static str },
     #[error("file system operation failed")]

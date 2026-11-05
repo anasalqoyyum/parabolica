@@ -66,7 +66,7 @@ fn concurrent_workers_readers_and_a_cancel_keep_every_invariant() {
                 if !rejected {
                     // The cancel may land before or after this; exactly one side wins.
                     match storage.transition_job(job, JobState::Completed) {
-                        Ok(()) | Err(StorageError::JobTransition(_)) => {}
+                        Ok(()) | Err(StorageError::JobTransition { .. }) => {}
                         Err(error) => panic!("{error}"),
                     }
                 }
@@ -78,7 +78,7 @@ fn concurrent_workers_readers_and_a_cancel_keep_every_invariant() {
         scope.spawn(move || {
             start_ref.wait();
             match canceller.transition_job(cancelled, JobState::Cancelled) {
-                Ok(()) | Err(StorageError::JobTransition(_)) => {}
+                Ok(()) | Err(StorageError::JobTransition { .. }) => {}
                 Err(error) => panic!("{error}"),
             }
         });

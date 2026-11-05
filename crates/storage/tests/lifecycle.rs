@@ -206,7 +206,23 @@ fn search_matches_substrings_in_any_script_and_ignores_diacritics() {
         .record_media_file(file_record(root, "inbox/Field Recording 03.flac", &[]))
         .unwrap();
 
+    let composed = storage
+        .record_media_file(file_record(
+            root,
+            "misc/dragon.flac",
+            &[
+                ("TITLE", "가나다라 ドラゴン"),
+                ("ARTIST", "Cafe\u{301} Tacvba"),
+            ],
+        ))
+        .unwrap();
     let search = |query: &str| storage.search_media_files(query, 50).unwrap();
+    // Hangul and voiced kana keep their composed form; an NFD tag matches an NFC query.
+    assert_eq!(search("가나다"), vec![composed]);
+    assert_eq!(search("ドラゴン"), vec![composed]);
+    assert_eq!(search("ドラ"), vec![composed]);
+    assert_eq!(search("café"), vec![composed]);
+    assert_eq!(search("tacvba cafe"), vec![composed]);
     assert_eq!(search("宇多田"), vec![japanese]);
     assert_eq!(search("first love"), vec![japanese]);
     assert_eq!(search("hoppipolla ros"), vec![accented]);
@@ -483,7 +499,7 @@ fn jobs_resume_after_reopening_and_never_complete_with_unfinished_items() {
     storage.transition_job(job, JobState::Incomplete).unwrap();
     assert!(matches!(
         storage.transition_job(job, JobState::Completed),
-        Err(StorageError::JobTransition(_))
+        Err(StorageError::JobTransition { .. })
     ));
     assert!(storage.unfinished_jobs().unwrap().is_empty());
     let record = storage.job(job).unwrap().unwrap();
@@ -567,6 +583,15 @@ fn jobs_resume_after_reopening_and_never_complete_with_unfinished_items() {
             reason: "read-only file".into()
         }
     );
+    // A rejected transition names the states without the stored reason.
+    let error = storage
+        .transition_job(failed, JobState::Completed)
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "job cannot move from failed to completed"
+    );
+    assert!(!format!("{error:?}").contains("read-only"));
 }
 
 #[test]

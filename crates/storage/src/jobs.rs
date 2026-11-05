@@ -101,7 +101,14 @@ impl Storage {
         self.write(move |tx| {
             let current =
                 load_job(tx, job)?.ok_or_else(|| StorageError::NotFound(job.to_string()))?;
-            let next = current.state.transition(to)?;
+            let next =
+                current
+                    .state
+                    .transition(to)
+                    .map_err(|invalid| StorageError::JobTransition {
+                        from: state_to_sql(&invalid.from).0,
+                        to: state_to_sql(&invalid.to).0,
+                    })?;
             if next == JobState::Completed {
                 let unfinished: i64 = tx.query_row(
                     "SELECT count(*) FROM job_items WHERE job_id = ?1 AND outcome <> 'done'",

@@ -542,7 +542,8 @@ fn index_for_search(tx: &Transaction<'_>, file: MediaFileId) -> Result<(), Stora
             .trim()
             .to_owned(),
     ];
-    let folded = fold_for_search(&columns.join(" "));
+    let columns = columns.map(|column| fold_for_search(&column));
+    let folded = columns.join(" ");
     tx.execute("DELETE FROM media_file_search WHERE rowid = ?1", [seq])?;
     tx.execute(
         "INSERT INTO media_file_search (rowid, title, artist, album, album_artist, other, folded)
@@ -554,12 +555,13 @@ fn index_for_search(tx: &Transaction<'_>, file: MediaFileId) -> Result<(), Stora
     Ok(())
 }
 
-/// Lower-case `text` and drop Latin-script accents (combining diacritical marks after canonical
-/// decomposition), matching what the trigram tokenizer ignores. Other marks, such as kana voicing,
-/// are kept.
+/// Lower-case `text`, drop Latin-script accents (combining diacritical marks after canonical
+/// decomposition) and recompose, so Hangul syllables and voiced kana keep their composed form.
+/// Indexed text and queries both go through this, so an NFD file name matches an NFC query.
 fn fold_for_search(text: &str) -> String {
     text.nfd()
         .filter(|c| !('\u{0300}'..='\u{036f}').contains(c))
+        .nfc()
         .flat_map(char::to_lowercase)
         .collect()
 }
