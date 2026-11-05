@@ -1,4 +1,215 @@
 {
   "repository": "anasalqoyyum/parabolica",
-  "issues": []
+  "issues": [
+    {
+      "key": "delivery",
+      "number": 1,
+      "id": 6229017799,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/1"
+    },
+    {
+      "key": "foundation",
+      "number": 2,
+      "id": 6229020656,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/2"
+    },
+    {
+      "key": "shell",
+      "number": 3,
+      "id": 6229021249,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/3"
+    },
+    {
+      "key": "storage",
+      "number": 4,
+      "id": 6229021922,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/4"
+    },
+    {
+      "key": "local-playback",
+      "number": 5,
+      "id": 6229022624,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/5"
+    },
+    {
+      "key": "library",
+      "number": 6,
+      "id": 6229023290,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/6"
+    },
+    {
+      "key": "queue",
+      "number": 7,
+      "id": 6229023911,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/7"
+    },
+    {
+      "key": "wasapi",
+      "number": 8,
+      "id": 6229024569,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/8"
+    },
+    {
+      "key": "asio",
+      "number": 9,
+      "id": 6229025193,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/9"
+    },
+    {
+      "key": "scan",
+      "number": 10,
+      "id": 6229028383,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/10"
+    },
+    {
+      "key": "gain",
+      "number": 11,
+      "id": 6229029067,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/11"
+    },
+    {
+      "key": "tags",
+      "number": 12,
+      "id": 6229029642,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/12"
+    },
+    {
+      "key": "cue",
+      "number": 13,
+      "id": 6229030235,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/13"
+    },
+    {
+      "key": "credentials",
+      "number": 14,
+      "id": 6229030867,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/14"
+    },
+    {
+      "key": "youtube-access",
+      "number": 15,
+      "id": 6229031522,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/15"
+    },
+    {
+      "key": "youtube-library",
+      "number": 16,
+      "id": 6229032219,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/16"
+    },
+    {
+      "key": "youtube-playback",
+      "number": 17,
+      "id": 6229032985,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/17"
+    },
+    {
+      "key": "youtube-discovery",
+      "number": 18,
+      "id": 6229033666,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/18"
+    },
+    {
+      "key": "discogs-access",
+      "number": 19,
+      "id": 6229036608,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/19"
+    },
+    {
+      "key": "discogs-adapter",
+      "number": 20,
+      "id": 6229037311,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/20"
+    },
+    {
+      "key": "discogs-import",
+      "number": 21,
+      "id": 6229037966,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/21"
+    },
+    {
+      "key": "signal-path",
+      "number": 22,
+      "id": 6229038524,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/22"
+    },
+    {
+      "key": "windows-integration",
+      "number": 23,
+      "id": 6229039112,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/23"
+    },
+    {
+      "key": "recovery",
+      "number": 24,
+      "id": 6229039714,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/24"
+    },
+    {
+      "key": "accessibility",
+      "number": 25,
+      "id": 6229040337,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/25"
+    },
+    {
+      "key": "performance",
+      "number": 26,
+      "id": 6229040970,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/26"
+    },
+    {
+      "key": "collections",
+      "number": 27,
+      "id": 6229041509,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/27"
+    },
+    {
+      "key": "sleep",
+      "number": 28,
+      "id": 6229043918,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/28"
+    },
+    {
+      "key": "lyrics",
+      "number": 29,
+      "id": 6229044488,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/29"
+    },
+    {
+      "key": "scrobbling",
+      "number": 30,
+      "id": 6229045032,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/30"
+    },
+    {
+      "key": "data-transfer",
+      "number": 31,
+      "id": 6229045547,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/31"
+    },
+    {
+      "key": "windows-package",
+      "number": 32,
+      "id": 6229046149,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/32"
+    },
+    {
+      "key": "macos",
+      "number": 33,
+      "id": 6229046781,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/33"
+    },
+    {
+      "key": "linux",
+      "number": 34,
+      "id": 6229047402,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/34"
+    },
+    {
+      "key": "acceptance",
+      "number": 35,
+      "id": 6229048003,
+      "url": "https://github.com/anasalqoyyum/parabolica/issues/35"
+    }
+  ]
 }

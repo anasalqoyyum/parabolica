@@ -80,3 +80,4 @@ Edit [plan.json](plan.json), then run `python3 scripts/render_issue_plan.py` fro
 
 If scope or dependencies change during implementation, update the source plan, regenerate the documents and synchronize the affected GitHub issues and native dependencies. Preserve completion evidence when updating issue bodies.
 
+Check the live native GitHub blockers with `python3 scripts/sync_issue_dependencies.py`. After an authorized dependency change, `--apply` adds missing links. The script stops on unexpected links so an agent can inspect them before removal.
