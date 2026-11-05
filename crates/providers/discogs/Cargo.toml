@@ -1,0 +1,14 @@
+[package]
+name = "parabolica-discogs"
+description = "Read-only Discogs release and artwork adapter."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+parabolica-domain.workspace = true
+parabolica-provider-contracts.workspace = true
+
+[lints]
+workspace = true

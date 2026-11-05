@@ -1,0 +1,17 @@
+[package]
+name = "parabolica-audio"
+description = "Decoding, the playback engine, DSP and output backends."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+parabolica-domain.workspace = true
+
+[features]
+# Exposes `realtime::probe` for tests in other crates that check callback allocation.
+test-support = []
+
+[lints]
+workspace = true

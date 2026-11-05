@@ -1,0 +1,29 @@
+[package]
+name = "parabolica-desktop"
+description = "Parabolica desktop application."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "parabolica"
+path = "src/main.rs"
+
+[dependencies]
+gpui-kit.workspace = true
+parabolica-audio.workspace = true
+parabolica-cue.workspace = true
+parabolica-discogs.workspace = true
+parabolica-domain.workspace = true
+parabolica-library.workspace = true
+parabolica-platform.workspace = true
+parabolica-provider-contracts.workspace = true
+parabolica-replaygain.workspace = true
+parabolica-scrobbling.workspace = true
+parabolica-storage.workspace = true
+parabolica-tags.workspace = true
+parabolica-youtube.workspace = true
+
+[lints]
+workspace = true

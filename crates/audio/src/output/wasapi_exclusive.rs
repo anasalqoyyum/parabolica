@@ -1,0 +1,1 @@
+//! WASAPI exclusive-mode output.

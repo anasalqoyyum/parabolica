@@ -1,0 +1,1 @@
+//! WASAPI shared-mode output.

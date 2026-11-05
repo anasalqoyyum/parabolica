@@ -1,0 +1,13 @@
+[package]
+name = "parabolica-replaygain"
+description = "ReplayGain 2.0 analysis and tag interoperability."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+parabolica-domain.workspace = true
+
+[lints]
+workspace = true

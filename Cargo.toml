@@ -1,0 +1,53 @@
+[workspace]
+resolver = "3"
+members = [
+    "apps/desktop",
+    "crates/domain",
+    "crates/storage",
+    "crates/library",
+    "crates/audio",
+    "crates/replaygain",
+    "crates/tags",
+    "crates/cue",
+    "crates/platform",
+    "crates/providers/contracts",
+    "crates/providers/youtube",
+    "crates/providers/discogs",
+    "crates/providers/scrobbling",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+parabolica-domain = { path = "crates/domain" }
+parabolica-storage = { path = "crates/storage" }
+parabolica-library = { path = "crates/library" }
+parabolica-audio = { path = "crates/audio" }
+parabolica-replaygain = { path = "crates/replaygain" }
+parabolica-tags = { path = "crates/tags" }
+parabolica-cue = { path = "crates/cue" }
+parabolica-platform = { path = "crates/platform" }
+parabolica-provider-contracts = { path = "crates/providers/contracts" }
+parabolica-youtube = { path = "crates/providers/youtube" }
+parabolica-discogs = { path = "crates/providers/discogs" }
+parabolica-scrobbling = { path = "crates/providers/scrobbling" }
+
+gpui-kit = "=0.9.0"
+thiserror = "2"
+uuid = { version = "1.18", default-features = false, features = ["std", "v7"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[profile.dev.package."*"]
+opt-level = 1
