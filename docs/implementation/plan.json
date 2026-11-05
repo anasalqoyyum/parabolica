@@ -1,0 +1,1480 @@
+{
+  "repository": "anasalqoyyum/parabolica",
+  "default_branch": "master",
+  "author_model": "gpt-6.1-sol",
+  "tasks": [
+    {
+      "key": "delivery",
+      "number": 1,
+      "title": "Deliver Parabolica end to end",
+      "area": "delivery",
+      "blocked_by": [
+        "acceptance"
+      ],
+      "ownership": [
+        "docs/implementation/README.md"
+      ],
+      "outcome": "Deliver the complete player described in PRODUCT.md, docs/TECH_SPEC.md and DESIGN.md, with every implementation issue verified and an installable artifact. This is the delivery tracker; execution order does not defer features to another milestone.",
+      "deliverables": [
+        "Keep the linked task checklist, dependency state and delivery evidence current.",
+        "Keep external account, driver, source-data and hardware requirements visible until they are actually resolved."
+      ],
+      "acceptance": [
+        "Every child task is complete against its own acceptance criteria.",
+        "Final acceptance covers the complete Windows player, the FiiO K3 ASIO path, YouTube Music playback, Discogs album tagging/artwork, and the macOS/Linux desktop ports.",
+        "A user can obtain the private build artifacts, install/run the app and complete the documented main workflows.",
+        "Open provider or hardware blockers keep this tracker open; a successful mock or a follow-up milestone does not satisfy a required behavior."
+      ],
+      "validation": [
+        "Review the final acceptance report and the final artifact commit/checksums.",
+        "Verify every linked task and source requirement has completion evidence."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": []
+    },
+    {
+      "key": "foundation",
+      "number": 2,
+      "title": "Build the Rust workspace and freeze integration contracts",
+      "area": "foundation",
+      "blocked_by": [],
+      "ownership": [
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        "apps/desktop/Cargo.toml",
+        "crates/domain/**",
+        "crate manifests and initial module roots",
+        ".github/workflows/check.yml"
+      ],
+      "outcome": "Establish a reproducible Rust/GPUI Kit workspace and shared contracts so feature agents can work without inventing incompatible models.",
+      "deliverables": [
+        "Pin GPUI Kit with its matching GPUI snapshot and toolchain; create desktop, domain, storage, library, audio, replaygain, tags, cue, provider and platform module boundaries. Choose crate splits for ownership rather than unnecessary abstraction.",
+        "Define stable IDs and commands/events for tracks, releases, physical/virtual files, playable sources, queues, decoder/output formats, signal-path stages, gains, tag patches, background jobs and provider capabilities.",
+        "Define the UI dispatch and versioned snapshot/event rules, cancellation/generation IDs, ownership of SQLite writes, and a no-blocking-work audio callback contract.",
+        "Publish the path and schema/migration ownership map and make Windows CI build/check the initial workspace."
+      ],
+      "acceptance": [
+        "A fresh Windows MSVC checkout resolves the pinned dependencies and runs the documented fmt, lint, test and build commands.",
+        "Core contracts distinguish source resolution, internal PCM and negotiated output; ASIO and browser-owned output fit the model.",
+        "Stable album/queue/file identities and CUE virtual ranges have types and contract tests.",
+        "Feature module boundaries and registration points are documented and usable by downstream tasks without editing competing root manifests.",
+        "CI exercises real compilable Rust contracts; placeholder success jobs do not satisfy this issue."
+      ],
+      "validation": [
+        "Run the pinned Windows build and core contract tests.",
+        "Check Cargo.lock reproducibility and CI logs from a clean checkout."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "discogs-access"
+      ]
+    },
+    {
+      "key": "shell",
+      "number": 3,
+      "title": "Build the GPUI Kit desktop shell and appearance settings",
+      "area": "ui",
+      "blocked_by": [
+        "foundation",
+        "storage"
+      ],
+      "ownership": [
+        "apps/desktop/src/ui/shell/**",
+        "apps/desktop/src/ui/theme/**",
+        "apps/desktop/src/ui/appearance/**",
+        "apps/desktop/src/main.rs"
+      ],
+      "outcome": "Launch a native Windows player shell matching the saved design, with usable navigation and correct Light, Dark and Follow system behavior.",
+      "deliverables": [
+        "Implement the window, sidebar, persistent player, navigation and reusable Kit-based controls, with integration slots for feature pages.",
+        "Implement semantic theme tokens, persisted appearance selection through the storage contract, system app-theme observation and reduced-motion/high-contrast handling.",
+        "Use the corrected Appearance reference: explicit Light stays light under a dark OS preference. Keep only useful labels and state."
+      ],
+      "acceptance": [
+        "A real GPUI Kit window opens and all implemented navigation/settings controls are keyboard reachable.",
+        "Explicit Light/Dark stays fixed; Follow system reacts to Windows changes before/after startup without a flash or resetting app state.",
+        "Japanese text and IME input work, focus is visible, and 100/150/200% DPI layouts remain usable.",
+        "Narrator can discover and operate representative Kit controls; document and fix framework gaps needed by our app.",
+        "Standard controls use gpui-component; custom views preserve accessibility and the supplied design."
+      ],
+      "validation": [
+        "Run native Windows UI checks for theme transitions, DPI, IME and keyboard focus.",
+        "Record actual Narrator observations separately from headless semantic assertions."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "discogs-access"
+      ]
+    },
+    {
+      "key": "storage",
+      "number": 4,
+      "title": "Implement durable app storage, migrations and job state",
+      "area": "storage",
+      "blocked_by": [
+        "foundation"
+      ],
+      "ownership": [
+        "crates/storage/**",
+        "crates/storage/migrations/0004_*.sql"
+      ],
+      "outcome": "Persist the library, queue, preferences, source links, analysis and write-job state in SQLite with recoverable migrations.",
+      "deliverables": [
+        "Implement the database owner, typed repositories, transactions, versioned migrations, FTS setup and error reporting.",
+        "Support atomic snapshots/checkpoints for queue/preferences and resumable scan/tag/import jobs, with schema extension rules for feature agents.",
+        "Store source provenance and file identity separately from display tags; keep secrets out of this database."
+      ],
+      "acceptance": [
+        "Create/open/reopen/migrate a database without losing valid library or queue data.",
+        "Interrupted transactions and concurrent worker events preserve invariants; schema changes have deterministic ownership.",
+        "Corrupt/incompatible databases produce recovery/export options instead of being silently overwritten.",
+        "Provider credentials are absent from database exports and logs.",
+        "All downstream features can use the storage contract without direct ad hoc UI-thread SQL."
+      ],
+      "validation": [
+        "Run migration, rollback/fault-injection and concurrent command tests with temporary databases.",
+        "Inspect persisted data and integrity after forced termination."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "discogs-access"
+      ]
+    },
+    {
+      "key": "local-playback",
+      "number": 5,
+      "title": "Play local FLAC through the real Windows audio engine",
+      "area": "audio",
+      "blocked_by": [
+        "foundation",
+        "shell",
+        "storage"
+      ],
+      "ownership": [
+        "crates/audio/src/decode/**",
+        "crates/audio/src/engine/**",
+        "crates/audio/src/output/wasapi_shared.rs",
+        "apps/desktop/src/ui/player/**",
+        "apps/desktop/src/commands/playback.rs"
+      ],
+      "outcome": "Open a local FLAC file in the actual app and play, pause, seek and adjust volume through WASAPI Shared with truthful playback state.",
+      "deliverables": [
+        "Implement Symphonia FLAC decoding, bounded PCM buffering, real-time-safe output consumption and controller snapshots.",
+        "Connect native file-open and player actions to real audio output, including duration, seek position and errors.",
+        "Expose negotiated output state and processing facts for the later inspector; default EQ/crossfade/effects off.",
+        "After exact FLAC decoding passes, enable and verify local MP3, PCM WAV and AAC/M4A container/codec combinations. Document enabled decoders; validate Opus with an additional decoder before claiming support."
+      ],
+      "acceptance": [
+        "Decode the stated 16/24-bit and 44.1–192 kHz fixtures with PCM equality against a trusted decoder.",
+        "Native play/pause/seek/volume works and stale seeks cannot affect a newly selected file.",
+        "Shared output negotiates the endpoint format and performs a documented single resampling/conversion stage when required.",
+        "Audio callbacks perform no allocation, blocking I/O, locks or logging; underrun information is collected safely.",
+        "Corrupt/unsupported files and unavailable devices fail visibly without freezing the shell or altering source files.",
+        "MP3, PCM WAV and supported AAC/M4A fixtures play and seek in the native player; unsupported combinations report a specific error. Decoder delay/padding is exposed to the queue transition contract."
+      ],
+      "validation": [
+        "Run exact decoder comparisons, controller race checks and backend-boundary capture tests.",
+        "Record actual Windows endpoint playback and negotiated format evidence."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "credentials",
+        "discogs-access"
+      ]
+    },
+    {
+      "key": "library",
+      "number": 6,
+      "title": "Implement folder indexing and the local collection UI",
+      "area": "library",
+      "blocked_by": [
+        "local-playback"
+      ],
+      "ownership": [
+        "crates/library/**",
+        "crates/storage/migrations/0006_*.sql",
+        "apps/desktop/src/ui/library/**",
+        "apps/desktop/src/ui/sources/folders.rs"
+      ],
+      "outcome": "Add music folders and browse/search/play the indexed collection from the app without waiting for a full scan.",
+      "deliverables": [
+        "Implement incremental metadata-first indexing, debounced watchers, reconciliation, cancellation and bounded artwork thumbnails.",
+        "Implement Albums, Artists, Songs and folder views, album detail, sorting/filtering, compilation/multi-disc identity and explicit album grouping overrides.",
+        "Implement add/remove/relocate folder and missing-file recovery with stable file/album identities."
+      ],
+      "acceptance": [
+        "First-run Add folder indexes valid files, shows progress, and lets the user play an album from real results.",
+        "FTS search, album/artist/song browsing, metadata and artwork use the stored library and virtualized views.",
+        "Unplugging a drive does not delete its collection; reconnect/move recovery restores availability.",
+        "Unicode/long Windows paths, junction cycles, watcher overflow, corrupt metadata and huge artwork are handled.",
+        "Distinct editions and compilations remain distinct; rescans preserve queue, ratings and source identity."
+      ],
+      "validation": [
+        "Run filesystem/index/search integration fixtures including removable roots and reconciliation.",
+        "Exercise add/search/browse/play/relocate through the native UI."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "queue",
+        "wasapi",
+        "youtube-access",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "queue",
+      "number": 7,
+      "title": "Implement queues, playlists, history and session restoration",
+      "area": "playback",
+      "blocked_by": [
+        "local-playback"
+      ],
+      "ownership": [
+        "crates/domain/src/queue/**",
+        "crates/storage/migrations/0007_*.sql",
+        "apps/desktop/src/controllers/queue/**",
+        "apps/desktop/src/ui/queue/**",
+        "apps/desktop/src/ui/playlists/**",
+        "crates/audio/src/transitions/**"
+      ],
+      "outcome": "Manage a reliable playback queue and app-owned playlists, and restore the listening session after restart.",
+      "deliverables": [
+        "Implement play now/next/later, duplicate entries with stable IDs, reorder/remove, history, shuffle and repeat off/all/one.",
+        "Implement local app playlists/likes and M3U8 import/export with explicit unavailable entries.",
+        "Persist queue order, shuffle order/seed, position and repeat state; restore paused.",
+        "Implement next-track prefetch and continuous local output across compatible formats, honoring decoder delay/padding without boundary fades. Reconfigure explicitly for incompatible rates/layouts."
+      ],
+      "acceptance": [
+        "User-visible queue and playlist actions control real playback and maintain deterministic next/previous behavior.",
+        "Reorder/removal of the playing entry, repeat-one/all and shuffle transitions have defined tested behavior.",
+        "Clean exit and forced termination restore the most recent valid checkpoint paused, without duplicating entries.",
+        "Unavailable tracks stay visible with retry/skip, and retry loops are bounded.",
+        "The source-aware queue contract supports later provider entries without replacing local identity.",
+        "A continuous album split across files produces exactly concatenated PCM at the backend boundary, with no inserted or dropped frames, and plays gaplessly on the actual Windows backend. Repeat and compatible shuffled transitions use the same engine path."
+      ],
+      "validation": [
+        "Run command/state/property-style tests and crash/restart scenarios.",
+        "Exercise queue/playlist imports and actual playback transitions in the app.",
+        "Capture split-album boundary PCM and compare against the unsplit reference; test short files, buffer pressure, delay/padding and format-change boundaries."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "library",
+        "wasapi",
+        "youtube-access",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "wasapi",
+      "number": 8,
+      "title": "Implement WASAPI Exclusive and listening-device controls",
+      "area": "audio",
+      "blocked_by": [
+        "local-playback"
+      ],
+      "ownership": [
+        "crates/audio/src/output/wasapi_exclusive.rs",
+        "apps/desktop/src/ui/listening_device/**",
+        "crates/platform/src/windows/audio_devices.rs"
+      ],
+      "outcome": "Choose a Windows endpoint and use WASAPI Shared or Exclusive from Listening device settings.",
+      "deliverables": [
+        "Implement backend/device enumeration, stable selection, supported formats, source-following/fixed-rate policy and negotiation.",
+        "Connect Listening device settings to the actual output controller and publish actual stream state.",
+        "Implement pause-on-disconnect and explicit recovery rather than silently switching to speakers or a different backend."
+      ],
+      "acceptance": [
+        "Shared/Exclusive and endpoint choices affect real playback, survive restart and reflect negotiated formats.",
+        "A busy exclusive endpoint or unsupported format reports the failure and offers an explicit alternative.",
+        "Source-rate changes and compatible gapless transitions follow the documented policy.",
+        "Disconnect/reconnect/sleep handling re-queries capabilities and preserves safe playback state.",
+        "Selection and state interfaces are ready for ASIO without treating an ASIO driver as a WASAPI endpoint."
+      ],
+      "validation": [
+        "Run format negotiation/device-loss tests and actual shared/exclusive playback on Windows.",
+        "Record native UI and endpoint evidence, including an incompatible/busy case."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "library",
+        "queue",
+        "youtube-access"
+      ]
+    },
+    {
+      "key": "asio",
+      "number": 9,
+      "title": "Implement FiiO K3 ASIO playback end to end",
+      "area": "audio",
+      "blocked_by": [
+        "wasapi"
+      ],
+      "ownership": [
+        "crates/audio/src/output/asio/**",
+        "crates/platform/src/windows/asio/**",
+        "apps/desktop/src/ui/listening_device/asio.rs",
+        ".github/workflows/windows-asio.yml"
+      ],
+      "outcome": "Select the installed FiiO K3 ASIO driver and play local audio through it with working rate, channel and buffer controls.",
+      "deliverables": [
+        "Integrate the pinned ASIO backend/SDK build and enumerate compatible driver architecture, outputs, sample types and supported rates.",
+        "Wire ASIO into the existing player and Listening device UI, including driver-panel support where exposed.",
+        "Report real buffer frames, negotiated format and driver-reported latency separately from computed buffer duration."
+      ],
+      "acceptance": [
+        "The native app plays through the actual FiiO K3 ASIO driver; a callback demo or WASAPI fallback is insufficient.",
+        "Rate policy, output channel mapping, driver-managed buffer and driver panel behave as reported by the installed driver.",
+        "Driver resets, busy/missing drivers, unplug/replug and sleep/resume recover without callback blocking or silent backend changes.",
+        "Windows mixer/session volume are not shown as active ASIO processing; app gain and volume remain truthful.",
+        "Windows ASIO build requirements and license/dependency notices are reproducible in CI and local setup."
+      ],
+      "validation": [
+        "Run backend/driver fault fixtures and a Windows build with the ASIO feature.",
+        "Record K3 model/revision, USB mode, driver version, real negotiated formats and audible/captured playback evidence."
+      ],
+      "external_requirement": "Requires a Windows machine with the FiiO K3 attached and its appropriate installed ASIO driver. Driver installation or machine access needs the user’s authorization. Keep the issue open if actual hardware validation is unavailable.",
+      "priority": "P0",
+      "parallel_with": [
+        "scan",
+        "tags",
+        "youtube-access",
+        "discogs-adapter"
+      ]
+    },
+    {
+      "key": "scan",
+      "number": 10,
+      "title": "Implement album and track ReplayGain analysis with the scanner UI",
+      "area": "replaygain",
+      "blocked_by": [
+        "library"
+      ],
+      "ownership": [
+        "crates/replaygain/src/analyze/**",
+        "apps/desktop/src/ui/replaygain/scanner/**",
+        "crates/storage/migrations/0010_*.sql"
+      ],
+      "outcome": "Select albums/tracks, review grouping, scan their audio and save complete ReplayGain analysis to the app library.",
+      "deliverables": [
+        "Implement ReplayGain 2.0 measurement to the -18 LUFS reference, track/album aggregation, sample/true-peak options and provenance.",
+        "Implement the full scanner page, group review, job progress, cancellation/history and incomplete/failed/stale states.",
+        "Handle multi-disc groups and explicit single-album versus tag grouping without averaging dB gains."
+      ],
+      "acceptance": [
+        "A real album scan produces reviewed track and album gains/peaks from fully decoded audio.",
+        "Pinned reference fixtures match the documented tolerance against foobar2000/independent RG2 measurement.",
+        "Missing tracks and failures cannot publish an incomplete album as complete; membership changes invalidate album results.",
+        "Cancel/resume reuses unchanged complete measurements and respects playback priority.",
+        "Analysis remains non-destructive and saved results/provenance survive restart."
+      ],
+      "validation": [
+        "Run loudness, gating/aggregation, silence/non-finite and cancellation fixtures.",
+        "Perform select/group/scan/review/save/reopen through the native app."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "asio",
+        "tags",
+        "youtube-library",
+        "youtube-playback",
+        "windows-integration",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "gain",
+      "number": 11,
+      "title": "Implement ReplayGain playback, interoperability and peak protection",
+      "area": "replaygain",
+      "blocked_by": [
+        "scan",
+        "tags"
+      ],
+      "ownership": [
+        "crates/audio/src/dsp/replaygain/**",
+        "crates/replaygain/src/tag_mapping.rs",
+        "apps/desktop/src/ui/replaygain/playback/**"
+      ],
+      "outcome": "Use scanned or existing file ReplayGain during real playback, preserve album dynamics, and write interoperable gain tags when requested.",
+      "deliverables": [
+        "Implement Off/Track/Album/Auto, preamp, effective-context selection and smooth explicit gain changes.",
+        "Read/write conventional FLAC ReplayGain fields through the safe tag service; keep app/file analysis sources explicit.",
+        "Implement album-wide peak-aware attenuation, optional true-peak protection and requested-versus-applied gain reporting."
+      ],
+      "acceptance": [
+        "Album mode applies one gain and one peak-protection bound across the album, preserving inter-track loudness differences.",
+        "Mixed/shuffled Auto context uses track mode; missing/stale values have the documented visible behavior.",
+        "Gain/preamp/volume and peak protection produce verified output samples without introducing clipping from the selected gain path.",
+        "Existing file tags and app analysis remain distinguishable, and explicit tag writes round-trip with foobar2000.",
+        "Gain changes are reflected in actual audio and output-state snapshots; metadata changes alone do not silently enable a playback mode."
+      ],
+      "validation": [
+        "Run DSP/output capture and sample/true-peak edge-case checks.",
+        "Verify native playback modes, scan-to-playback flow and file-tag round-trips."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "youtube-library",
+        "youtube-playback",
+        "discogs-adapter"
+      ]
+    },
+    {
+      "key": "tags",
+      "number": 12,
+      "title": "Implement safe album metadata and artwork editing",
+      "area": "metadata",
+      "blocked_by": [
+        "library"
+      ],
+      "ownership": [
+        "crates/tags/**",
+        "apps/desktop/src/ui/tags/**",
+        "crates/storage/migrations/0012_*.sql"
+      ],
+      "outcome": "Edit a whole album’s fields and artwork from Files & tags with a reviewed, recoverable per-file write job.",
+      "deliverables": [
+        "Implement current/proposed tag patches, shared album fields and individual track overrides with replace/fill-empty/keep choices.",
+        "Implement local front/back/booklet art selection, embedded/sidecar/both destinations and explicit existing-cover replacement.",
+        "Implement temporary sibling replacement, file-change detection, backups/recovery and partial write/retry state."
+      ],
+      "acceptance": [
+        "User-selected album and per-track changes reach the intended files and are reflected after library refresh.",
+        "Unselected/unknown tags, pictures, ReplayGain and decoded PCM remain unchanged.",
+        "Artwork validation, existing sidecar conflicts and duplicate-free retries work without changing files before review.",
+        "Read-only/disk-full/interrupted/concurrently edited/actively playing files produce recoverable per-file outcomes.",
+        "The reusable tag-patch/write contract supports ReplayGain and Discogs consumers without separate unsafe writers."
+      ],
+      "validation": [
+        "Compare decoded PCM and untouched metadata before/after writes; inject failures around replacement.",
+        "Exercise album field/art review, apply, partial retry and recovery through the UI."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "asio",
+        "scan",
+        "youtube-library",
+        "youtube-playback",
+        "windows-integration",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "cue",
+      "number": 13,
+      "title": "Support CUE album images and virtual tracks throughout the player",
+      "area": "cue",
+      "blocked_by": [
+        "queue",
+        "gain",
+        "tags"
+      ],
+      "ownership": [
+        "crates/cue/**",
+        "crates/library/src/cue_adapter.rs",
+        "crates/audio/src/cue_ranges.rs",
+        "apps/desktop/src/ui/cue/**"
+      ],
+      "outcome": "Import and play full-album FLAC/CUE rips as correctly ordered virtual tracks, with accurate gaps and metadata behavior.",
+      "deliverables": [
+        "Parse external single/multi-file CUE sheets, indexes/pregaps, disc/track metadata and supported encodings.",
+        "Integrate virtual file ranges with library identities, queue/seek/gapless, ReplayGain analysis and Files & tags.",
+        "Distinguish one physical tag/artwork container from virtual-track metadata and any separately reviewed sidecar/CUE edits."
+      ],
+      "acceptance": [
+        "A full-album image appears as tracks and plays/seeks at sample-accurate boundaries without double-counting audio.",
+        "INDEX 00/pregap and multi-file ordering have documented behavior and reference fixtures.",
+        "Track/album gain and peak analysis use the correct virtual ranges and preserve the album context.",
+        "Album art/tags write once to a single image; the UI does not claim separate physical tags per virtual track.",
+        "Moved/missing images, malformed CUE data and edits preserve stable identities or show explicit recovery."
+      ],
+      "validation": [
+        "Run sample-boundary, pregap, multi-disc/multi-file and corrupt-CUE tests.",
+        "Complete import→queue→seek→scan→tag/art review in the native app."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-library",
+        "youtube-playback",
+        "discogs-adapter"
+      ]
+    },
+    {
+      "key": "credentials",
+      "number": 14,
+      "title": "Implement provider contracts and secure credential storage",
+      "area": "platform",
+      "blocked_by": [
+        "foundation",
+        "shell",
+        "storage"
+      ],
+      "ownership": [
+        "crates/providers/contracts/**",
+        "crates/platform/src/credentials/**",
+        "apps/desktop/src/ui/accounts/**"
+      ],
+      "outcome": "Provide a secure, capability-aware account/service foundation for YouTube Music, Discogs and scrobbling.",
+      "deliverables": [
+        "Implement provider IDs/capabilities, auth expiry, scoped errors, cancellable generation-tagged requests and account lifecycle events.",
+        "Implement OS credential storage and browser-based auth handoff helpers, with reconnect/disconnect UI integration points.",
+        "Keep credentials, cookies and signed media URLs out of logs, database exports and fixtures."
+      ],
+      "acceptance": [
+        "Provider contract tests cover ready/signed-out/expired/offline/restricted states without misreporting unavailable capabilities.",
+        "Windows credentials persist securely across restarts, and sign-out revokes/removes local secrets and stops that provider session.",
+        "Auth callbacks are validated and stale results cannot reconnect the wrong account.",
+        "No provider relies on a shared personal token baked into the binary.",
+        "Downstream providers can plug in real auth flows without changing the domain/queue contracts."
+      ],
+      "validation": [
+        "Run credential round-trip, redaction, callback and cancellation tests using disposable secrets.",
+        "Verify the native reconnect/disconnect states and OS-backed storage on Windows."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "local-playback",
+        "discogs-access"
+      ]
+    },
+    {
+      "key": "youtube-access",
+      "number": 15,
+      "title": "Resolve and prove authenticated YouTube Music playback access",
+      "area": "youtube",
+      "blocked_by": [
+        "shell",
+        "credentials"
+      ],
+      "ownership": [
+        "crates/providers/youtube/src/auth/**",
+        "crates/providers/youtube/src/transport/**",
+        "docs/research/YOUTUBE_MUSIC.md",
+        "tests/provider-live/youtube/**"
+      ],
+      "outcome": "Prove a viable personal-account integration with real authenticated audio playback before downstream UI work depends on it.",
+      "deliverables": [
+        "Evaluate current account/login, entitlement, stream or browser-backed playback paths, GPUI integration and applicable service constraints.",
+        "Choose and implement a reusable auth/transport path with a real playback proof, account expiry/reconnect, seeking and observed quality/capabilities.",
+        "Document the supported capability matrix and keep unmet requirements explicit if access cannot be established."
+      ],
+      "acceptance": [
+        "A real entitled account plays a chosen YouTube Music item through the selected integration; catalog-only JSON and external-browser shortcuts do not pass.",
+        "Login uses a supported/user-approved handoff and never collects a Google password in native UI.",
+        "Actual seek, expiry, reconnect, background behavior and stream/browser output inspection are recorded.",
+        "The selected path has reusable provider interfaces for catalog and queue agents, with no shared provider-specific application credential.",
+        "An unsupported required capability remains a blocker and is escalated for a product decision; it is not closed as a future milestone or silently substituted."
+      ],
+      "validation": [
+        "Run live account/entitlement/seek/expiry checks and saved redacted protocol fixtures.",
+        "Record what the app can actually control or inspect, including audio output ownership."
+      ],
+      "external_requirement": "Requires the owner’s YouTube Music account, appropriate entitlement and interactive authorization. Service access/policies may require a product decision; an AI agent cannot manufacture access or certify an unsupported playback route.",
+      "priority": "P1",
+      "parallel_with": [
+        "library",
+        "queue",
+        "wasapi",
+        "asio",
+        "discogs-access",
+        "discogs-adapter"
+      ]
+    },
+    {
+      "key": "youtube-library",
+      "number": 16,
+      "title": "Integrate YouTube Music catalog, accounts and unified library search",
+      "area": "youtube",
+      "blocked_by": [
+        "youtube-access",
+        "library"
+      ],
+      "ownership": [
+        "crates/providers/youtube/src/catalog/**",
+        "apps/desktop/src/ui/library/remote/**",
+        "crates/storage/migrations/0016_*.sql"
+      ],
+      "outcome": "Browse and search local files and the real connected YouTube Music library in one app while preserving source identities.",
+      "deliverables": [
+        "Implement catalog search, albums/artists/releases, saved library and paginated incremental sync from the proven transport.",
+        "Integrate All music/Local/YouTube filters, federated search cancellation, artwork and independent per-source errors.",
+        "Implement explicit reversible local/remote recording links, retaining distinct editions and provider IDs."
+      ],
+      "acceptance": [
+        "Connected account results populate actual library and search views, and source filtering works.",
+        "Remote failure/signed-out state never hides local matches or blocks local playback.",
+        "Different masters/editions and duplicate sources are not silently merged or substituted.",
+        "Pagination, rate limiting, stale responses, deleted/unavailable/region-limited items and sync recovery have visible tested behavior.",
+        "Selected remote items dispatch through the established provider playback/queue contract."
+      ],
+      "validation": [
+        "Run catalog fixture/contract tests and live read-only account checks.",
+        "Exercise mixed-source search/browse/filter/reconnect in the app."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "scan",
+        "gain",
+        "tags",
+        "cue",
+        "youtube-playback",
+        "discogs-adapter",
+        "windows-integration",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "youtube-playback",
+      "number": 17,
+      "title": "Integrate streaming playback with mixed queues and truthful output state",
+      "area": "youtube",
+      "blocked_by": [
+        "youtube-access",
+        "queue"
+      ],
+      "ownership": [
+        "crates/providers/youtube/src/playback/**",
+        "apps/desktop/src/controllers/provider_playback/**",
+        "tests/integration/mixed_sources/**"
+      ],
+      "outcome": "Play remote items from the app’s queue and switch between local FLAC and YouTube Music without two backends producing sound.",
+      "deliverables": [
+        "Implement the proven playback adapter, seek/pause/next, expiry/retry and capability-aware metadata/quality state.",
+        "Integrate remote queue entries, source handoff, session restoration and unavailable-item recovery.",
+        "Publish truthful provider-owned versus app-owned PCM/output information; apply native DSP/ASIO only where the actual path supports it."
+      ],
+      "acceptance": [
+        "Local→remote→local playback works from the same queue, and exactly one backend is audible.",
+        "Expired/signed URLs or sessions refresh through bounded recovery without exposing credentials or restarting the wrong item.",
+        "Queue restore, shuffle/repeat, user seeks and late async responses preserve the intended playing entry.",
+        "Source bitrate/codec and output ownership are reported only when verified; browser output does not falsely show native ReplayGain/ASIO.",
+        "Unsupported streaming gapless or quality is represented honestly while supported playback behavior works end to end."
+      ],
+      "validation": [
+        "Run mixed-backend race/state tests with deterministic fake transports and a real connected session.",
+        "Record actual remote playback, source switching, expiry recovery and output ownership."
+      ],
+      "external_requirement": "Live validation requires the account and access route proved by the access issue. Retain that dependency rather than replacing streaming with an untested stub.",
+      "priority": "P1",
+      "parallel_with": [
+        "scan",
+        "gain",
+        "tags",
+        "cue",
+        "youtube-library",
+        "discogs-adapter",
+        "windows-integration",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "youtube-discovery",
+      "number": 18,
+      "title": "Complete streaming discovery, playlists, likes and radio",
+      "area": "youtube",
+      "blocked_by": [
+        "youtube-library",
+        "youtube-playback"
+      ],
+      "ownership": [
+        "apps/desktop/src/ui/discovery/**",
+        "crates/providers/youtube/src/actions/**",
+        "apps/desktop/src/ui/playlists/remote/**"
+      ],
+      "outcome": "Make the streaming side usable for daily listening through real discovery and playlist/account actions.",
+      "deliverables": [
+        "Implement Home/Explore, artist/album pages, recommendations/radio where supported, saved items and provider likes.",
+        "Implement app-owned mixed playlists and explicit supported remote playlist/like writes with source attribution and per-action errors.",
+        "Explain non-exportable local entries when exporting to a remote playlist; never silently upload or replace their recordings."
+      ],
+      "acceptance": [
+        "Discovery and radio results can be queued and played through the connected provider.",
+        "Local app likes and provider likes are distinct, and successful/failed remote writes are reported truthfully.",
+        "Remote playlist create/edit/reorder and app-owned mixed playlist behavior are complete for proven provider capabilities.",
+        "Offline, regional, permission and unavailable states have actionable recovery; capability restrictions never look like successful saves.",
+        "No Home/Explore/playlist control is left as a decorative placeholder."
+      ],
+      "validation": [
+        "Run provider action contract tests and native read/write UI flows with an explicitly authorized test playlist.",
+        "Verify remote mutations by reading them back and preserve local-only entries."
+      ],
+      "external_requirement": "Remote write tests require an owner-approved disposable playlist/account action. Never mutate unrelated user playlists during tests.",
+      "priority": "P1",
+      "parallel_with": [
+        "discogs-import",
+        "signal-path",
+        "windows-integration",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling"
+      ]
+    },
+    {
+      "key": "discogs-access",
+      "number": 19,
+      "title": "Resolve Discogs access, attribution and durable tag/artwork use",
+      "area": "discogs",
+      "blocked_by": [],
+      "ownership": [
+        "docs/research/DISCOGS.md",
+        "docs/research/DISCOGS_INTEGRATION_DECISION.md",
+        "tests/provider-live/discogs_access/**"
+      ],
+      "outcome": "Establish the supported data-use and access model for the required personal Discogs album tagging and persistent artwork workflow.",
+      "deliverables": [
+        "Resolve how the current API terms, CC0 metadata, Restricted Data images, freshness/storage rules and attribution apply to durable local tags and artwork.",
+        "Verify the current search/release/master/image responses, auth requirements, quotas and intended personal credential flow.",
+        "Record a concrete supported implementation decision, including what requires provider or owner input."
+      ],
+      "acceptance": [
+        "The decision covers durable local metadata, embedded images and sidecar images separately, with current primary-source evidence.",
+        "Required attribution is designed for the import context and does not become repeated generic warnings throughout the player.",
+        "Public lookup observations and authenticated/production access requirements are distinguished.",
+        "Unresolved provider permission or owner choices remain explicit blockers; merely restating the old research uncertainty does not complete this issue.",
+        "The required feature stays in scope until an explicit owner decision changes it; a different art source is not a silent replacement for Discogs."
+      ],
+      "validation": [
+        "Review the decision against live first-party API behavior and current terms.",
+        "Record written clarifications or owner decisions when those are needed; no secrets enter the repository."
+      ],
+      "external_requirement": "Provider clarification or an owner product decision may be needed. Sending a message to Discogs requires separate explicit authorization; the issue does not authorize outbound correspondence. This is a real input blocker, not a later milestone.",
+      "priority": "P1",
+      "parallel_with": [
+        "foundation",
+        "shell",
+        "storage",
+        "local-playback",
+        "credentials",
+        "youtube-access"
+      ]
+    },
+    {
+      "key": "discogs-adapter",
+      "number": 20,
+      "title": "Implement the Discogs release and artwork source adapter",
+      "area": "discogs",
+      "blocked_by": [
+        "discogs-access",
+        "credentials"
+      ],
+      "ownership": [
+        "crates/providers/discogs/**",
+        "tests/fixtures/discogs/**"
+      ],
+      "outcome": "Supply real, normalized edition metadata and artwork proposals for an album through the supported Discogs API path.",
+      "deliverables": [
+        "Implement search, release URL/ID lookup, master-version browsing, pagination, user agent and conditional auth.",
+        "Normalize artists/ANVs/joins, release fields, track/index/heading structures, positions, partial dates, genre/style arrays and image metadata without losing source detail.",
+        "Implement rate-header handling, bounded retry, permitted retention, source attribution and image decode/size validation."
+      ],
+      "acceptance": [
+        "Live queries and pinned redacted fixtures return edition-level proposals with actual track/image fields.",
+        "Search display titles and master tracklists do not overwrite release data.",
+        "Missing durations/images, multi-disc/vinyl positions, optional nested grouping and multiple labels/credits preserve meaning.",
+        "401/403/404/429/network failures are typed recoverable outcomes and do not trigger per-track API storms.",
+        "Artwork uses returned URLs and declared dimensions without assuming high resolution or authorization transfer to an unrelated CDN."
+      ],
+      "validation": [
+        "Run normalization/auth/rate-limit/pagination/error fixtures.",
+        "Verify live search→release→image metadata retrieval under the resolved access model."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "asio",
+        "gain",
+        "cue",
+        "youtube-access",
+        "youtube-library",
+        "youtube-playback",
+        "windows-integration",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "discogs-import",
+      "number": 21,
+      "title": "Deliver whole-album Discogs tag and artwork synchronization",
+      "area": "discogs",
+      "blocked_by": [
+        "discogs-adapter",
+        "tags",
+        "cue"
+      ],
+      "ownership": [
+        "apps/desktop/src/ui/tags/discogs/**",
+        "crates/tags/src/discogs_import/**",
+        "crates/storage/migrations/0021_*.sql",
+        "docs/design/discogs-flow/**"
+      ],
+      "outcome": "Use Update from Discogs in Files & tags to match, review and update an entire local album and its artwork, including multi-disc/CUE cases.",
+      "deliverables": [
+        "Implement release search/selection with edition details and a local-file/source-track mapping view.",
+        "Implement current/proposed album and individual-track fields with keep/fill-empty/replace controls and separate artwork/destination review.",
+        "Apply through the safe album write service and persist permitted release/mapping provenance for reviewed reimports.",
+        "Complete the missing Files & tags/Discogs UI states in both themes, following the functional-copy preference."
+      ],
+      "acceptance": [
+        "One user-triggered import handles all selected album discs; a lookup/write per song is not required.",
+        "Missing, extra, reordered, compilation, bonus, heading/index and combined/split cases cannot silently shift subsequent mappings.",
+        "Selected album fields reach all included targets and track fields reach only their resolved files.",
+        "Chosen cover/secondary art reaches embedded/sidecar/both destinations under the resolved source rules, preserving untouched art and avoiding duplicate retries.",
+        "Reimport shows a fresh diff, preserves later manual edits until selected, and retains ReplayGain/PCM/library identity.",
+        "Partial failures and active-file/concurrent-Mp3tag conflicts can be recovered from the UI with per-file outcomes."
+      ],
+      "validation": [
+        "Run the full release selection→mapping→diff→art review→write→reopen flow on multi-disc and CUE fixtures.",
+        "Verify physical tags/artwork, PCM equality, exclusions, partial retry and reimport behavior."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "signal-path",
+        "windows-integration",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "signal-path",
+      "number": 22,
+      "title": "Deliver the expandable audio signal-path inspector",
+      "area": "audio-ui",
+      "blocked_by": [
+        "wasapi",
+        "asio",
+        "gain",
+        "youtube-playback"
+      ],
+      "ownership": [
+        "apps/desktop/src/ui/signal_path/**",
+        "crates/audio/src/inspection/**"
+      ],
+      "outcome": "Explain the actual current playback path from source through app processing to negotiated output, with explicit uncertainty.",
+      "deliverables": [
+        "Implement the player-bar summary, expanded inspector, copy-path action and Listening device navigation.",
+        "Consume active snapshots for source, decoded PCM, gain/preamp/protection, resampling, EQ/crossfade/volume, conversion, backend, channels/rate/format and device/driver buffer.",
+        "Implement appropriate shared/exclusive/ASIO and provider-owned output stages in both themes."
+      ],
+      "acceptance": [
+        "Changing track, backend, rate, gain or endpoint updates the inspector from actual controller/driver state.",
+        "A 24/96 source through 48 kHz shared output shows that conversion; a source-rate ASIO path shows bypassed resampling and Windows mixer/session-volume scope.",
+        "Buffer duration is not mislabeled latency, and hardware DSP or uninspectable provider output is marked unverified/unavailable.",
+        "ReplayGain/volume processing prevents an unsupported bit-perfect claim.",
+        "The inspector is keyboard reachable, closes with Escape and restores focus; copy-path text matches the visible stages."
+      ],
+      "validation": [
+        "Compare snapshots and UI against actual negotiated backend values for WASAPI and K3 ASIO.",
+        "Verify provider-managed states and dark/light screenshots with no inferred device format."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "discogs-import",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "windows-integration",
+      "number": 23,
+      "title": "Integrate Windows media controls, dialogs and application lifecycle",
+      "area": "platform",
+      "blocked_by": [
+        "queue",
+        "credentials"
+      ],
+      "ownership": [
+        "crates/platform/src/windows/media/**",
+        "crates/platform/src/windows/lifecycle/**",
+        "apps/desktop/src/controllers/os_events/**"
+      ],
+      "outcome": "Control real playback through Windows media integration and preserve safe state across ordinary desktop lifecycle events.",
+      "deliverables": [
+        "Implement system media-session metadata/actions, media keys, native open/folder dialogs and appropriate notifications.",
+        "Integrate app activation/single-instance file-open routing, sleep/resume and close/quit behavior with the queue/controller.",
+        "Keep artwork/metadata presented to the OS consistent with the playing entry and privacy preferences."
+      ],
+      "acceptance": [
+        "Windows play/pause/next/previous actions reach the same queue commands as the UI, including when unfocused.",
+        "OS metadata and artwork follow local/remote playback without stale track leakage.",
+        "Second-instance/open-with requests reach the running player safely.",
+        "Sleep/resume and application shutdown checkpoint state without duplicate sound, secret logs or silent device switching.",
+        "Native dialogs handle Unicode/long paths and cancellation without changing the current session."
+      ],
+      "validation": [
+        "Exercise Windows media overlay/keys, activation, dialogs and lifecycle on a real Windows build.",
+        "Run event ordering and shutdown/checkpoint integration tests."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "scan",
+        "tags",
+        "youtube-library",
+        "youtube-playback",
+        "youtube-discovery",
+        "discogs-adapter",
+        "discogs-import"
+      ]
+    },
+    {
+      "key": "recovery",
+      "number": 24,
+      "title": "Verify and fix cross-feature recovery and data integrity",
+      "area": "reliability",
+      "blocked_by": [
+        "library",
+        "queue",
+        "asio",
+        "gain",
+        "cue",
+        "youtube-playback",
+        "discogs-import",
+        "windows-integration",
+        "data-transfer"
+      ],
+      "ownership": [
+        "tests/recovery/**",
+        "docs/validation/recovery.md",
+        "bounded fixes coordinated with the owning feature module"
+      ],
+      "outcome": "Survive process termination, device/drive loss, network/auth expiry and interrupted write jobs without data loss or false success.",
+      "deliverables": [
+        "Build failure-injection scenarios across database checkpoints, audio devices, indexing, scans, provider playback, tag/artwork jobs and backups.",
+        "Fix exposed recovery defects through the responsible module owners while keeping a clear change boundary.",
+        "Document user-visible recovery actions and exactly what data was or was not written."
+      ],
+      "acceptance": [
+        "Forced termination at each write/checkpoint phase preserves valid audio and a recoverable database/job state.",
+        "Disconnected drives are retained; lost output devices pause safely; provider expiry does not break local playback.",
+        "Concurrent external tag edits, disk-full/read-only conditions and half-complete album jobs never silently overwrite or report full success.",
+        "Restoration preserves queue identities, positions, ratings and valid analysis while excluding secrets from exports.",
+        "All discovered material failures are fixed and rerun; a report of known corruption is not a passing result."
+      ],
+      "validation": [
+        "Run the documented fault matrix against packaged or production-equivalent Windows builds.",
+        "Retain reproducible failure fixtures and before/after integrity evidence."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "accessibility",
+        "performance",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "accessibility",
+      "number": 25,
+      "title": "Complete keyboard, Narrator, DPI and localization acceptance",
+      "area": "accessibility",
+      "blocked_by": [
+        "shell",
+        "library",
+        "queue",
+        "scan",
+        "tags",
+        "cue",
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-integration",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "data-transfer"
+      ],
+      "ownership": [
+        "tests/ui/accessibility/**",
+        "docs/validation/accessibility.md",
+        "bounded UI corrections coordinated with page owners"
+      ],
+      "outcome": "Operate every delivered workflow with the keyboard and Windows assistive technology at supported scaling and text lengths.",
+      "deliverables": [
+        "Exercise full navigation/focus restoration, lists/tables, dialogs, menus, sliders, theme changes and asynchronous status/error announcements.",
+        "Test Narrator/UIA, CJK/Indonesian metadata and IME, 100/150/200% scaling, reduced motion and high contrast.",
+        "Fix inaccessible custom views and layout/text failures in the integrated application."
+      ],
+      "acceptance": [
+        "A keyboard-only user can import/search/play/queue/scan/edit tags/sync Discogs/connect providers/change output and appearance/export data.",
+        "Narrator exposes correct names, values, roles and actionable state, including errors and live job results.",
+        "Long and Japanese/Indonesian content remains usable without clipped controls or lost focus.",
+        "Light/Dark/Follow system works under a dark OS preference; artwork colors and current playback survive theme changes.",
+        "Headless semantics and screenshots are supplemented by real Windows screen-reader operation."
+      ],
+      "validation": [
+        "Run the complete interaction matrix and relevant GPUI Kit integration tests.",
+        "Record Windows, scaling, build and assistive technology for each actual observation."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "recovery",
+        "performance",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "performance",
+      "number": 26,
+      "title": "Validate large-library performance and real-time audio reliability",
+      "area": "performance",
+      "blocked_by": [
+        "library",
+        "queue",
+        "asio",
+        "gain",
+        "cue",
+        "youtube-playback",
+        "discogs-import",
+        "collections",
+        "data-transfer"
+      ],
+      "ownership": [
+        "tests/performance/**",
+        "scripts/benchmark_*",
+        "docs/validation/performance.md",
+        "bounded fixes coordinated with owning modules"
+      ],
+      "outcome": "Keep the complete player responsive with a 100,000-track library and background work while audio remains reliable.",
+      "deliverables": [
+        "Create reproducible synthetic/local fixtures and document hardware, dataset, cold/warm state and measurement procedure.",
+        "Measure startup, search, virtualized browsing, artwork cache, indexing/scan/tag background jobs, memory bounds and output underruns.",
+        "Fix measured regressions without weakening decoder/gapless correctness or inventing unsupported performance claims."
+      ],
+      "acceptance": [
+        "Measure the spec targets for a usable restored window and warm search on a documented reference machine.",
+        "Indexing, scanning, artwork and tag jobs remain bounded and yield to actual playback.",
+        "A sustained WASAPI/ASIO playback workload has documented callback/underrun evidence, including rate changes and source switches.",
+        "The benchmark records before/after data for fixes and distinguishes statistical noise from improvement.",
+        "Out-of-budget behavior has a concrete fix or explicit owner decision; it is not hidden by a demo-only dataset."
+      ],
+      "validation": [
+        "Run targeted benchmarks with the benchmark-checklist skill and the stated corpus.",
+        "Pair timing data with native interaction and audio-boundary correctness checks."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "recovery",
+        "accessibility",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "collections",
+      "number": 27,
+      "title": "Deliver ratings, smart playlists and collection organization",
+      "area": "library",
+      "blocked_by": [
+        "youtube-library",
+        "youtube-playback",
+        "queue"
+      ],
+      "ownership": [
+        "crates/library/src/collections/**",
+        "crates/storage/migrations/0027_*.sql",
+        "apps/desktop/src/ui/collections/**"
+      ],
+      "outcome": "Organize the unified collection through ratings, play history and saved rule-based playlists that play real results.",
+      "deliverables": [
+        "Implement user ratings/play counts/history and deterministic smart-playlist rule evaluation over supported local and provider fields.",
+        "Implement create/edit/delete/preview rules and queue/play the resulting collection with explicit source availability.",
+        "Preserve ratings/history through rescans, retagging, source links and album identity changes."
+      ],
+      "acceptance": [
+        "Users can create a smart playlist, inspect its real members, edit rules and play its results.",
+        "Ratings/history are stored once per documented identity and do not duplicate on reconnect or retry.",
+        "Unavailable remote/offline local entries are represented consistently with queue behavior.",
+        "Rules, sorting, empty results and malformed saved filters have defined recoverable outcomes.",
+        "This is delivered functionality in the same issue set, not a postponed convenience milestone."
+      ],
+      "validation": [
+        "Run rule/identity/persistence tests and native create→preview→play→restart flows.",
+        "Check a mixed local/provider collection and large-rule result virtualization."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "sleep",
+      "number": 28,
+      "title": "Deliver a sleep timer for local and streaming playback",
+      "area": "playback",
+      "blocked_by": [
+        "queue",
+        "youtube-playback"
+      ],
+      "ownership": [
+        "apps/desktop/src/ui/sleep_timer/**",
+        "apps/desktop/src/controllers/sleep_timer/**"
+      ],
+      "outcome": "Set, inspect, cancel and complete a sleep timer without leaving either playback backend running.",
+      "deliverables": [
+        "Implement a user-visible timer, monotonic elapsed timing and the chosen stop/pause behavior through shared playback commands.",
+        "Handle source changes, pause/resume, app sleep/resume, cancellation and existing queue/session state."
+      ],
+      "acceptance": [
+        "A timer set in the native UI pauses/stops the active local or remote backend at the documented time.",
+        "Changing source does not orphan a timer or stop a stale backend instead of the current one.",
+        "Cancel/replace actions and system sleep have deterministic tested semantics.",
+        "The queue and saved session remain valid after timer completion and restart."
+      ],
+      "validation": [
+        "Use controlled clock tests for timing/lifecycle edges.",
+        "Exercise the timer with actual local and provider playback."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "lyrics",
+      "number": 29,
+      "title": "Deliver lyrics from supported local and permitted provider sources",
+      "area": "playback",
+      "blocked_by": [
+        "youtube-library",
+        "youtube-playback",
+        "credentials"
+      ],
+      "ownership": [
+        "crates/library/src/lyrics/**",
+        "apps/desktop/src/ui/lyrics/**",
+        "crates/providers/youtube/src/lyrics.rs"
+      ],
+      "outcome": "Read synchronized or unsynchronized lyrics for the current track without relying on an unauthorized lyrics scrape.",
+      "deliverables": [
+        "Support supported embedded text and local LRC sidecars, with actual playback-time synchronization and manual offset where needed.",
+        "Use provider lyrics only when the proven API/access route permits them; represent unavailable results honestly.",
+        "Implement discovery/selection, loading/error/empty states and both theme layouts without blocking playback."
+      ],
+      "acceptance": [
+        "Local lyrics display correctly and synchronized lines follow seek/pause/track changes.",
+        "Late responses cannot put one track’s lyrics over another.",
+        "Unicode, malformed timestamps, missing sidecars and long text have tested behavior.",
+        "Provider lyrics either work through a documented permitted path or show unavailable while user-supplied local lyrics still work.",
+        "No unauthorized third-party scrape or invented lyric content is used to claim completion."
+      ],
+      "validation": [
+        "Run LRC/parser/time-sync tests and native playback/seek scenarios.",
+        "Verify any enabled remote source against its actual access/usage contract."
+      ],
+      "external_requirement": "",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "scrobbling",
+      "number": 30,
+      "title": "Deliver opt-in scrobbling with secure auth and offline recovery",
+      "area": "providers",
+      "blocked_by": [
+        "queue",
+        "youtube-playback",
+        "credentials"
+      ],
+      "ownership": [
+        "crates/providers/scrobbling/**",
+        "apps/desktop/src/ui/accounts/scrobbling.rs",
+        "crates/storage/migrations/0030_*.sql"
+      ],
+      "outcome": "Optionally send eligible local and streaming listening events to a supported scrobbling service without duplicates or credential leaks.",
+      "deliverables": [
+        "Select and document a supported service such as Last.fm, verify its current eligibility/auth requirements, and implement the real account flow.",
+        "Consume stable playback events, handle now-playing/eligible completion, seeks, replay, timer stops and source switches.",
+        "Persist a bounded retry/outbox for offline operation and provide disconnect/data controls."
+      ],
+      "acceptance": [
+        "An explicitly connected test account receives eligible local and streaming plays exactly once.",
+        "Short plays, seeks, repeated events, offline retries and app restart follow the service’s current rules.",
+        "Disconnect prevents new sends and removes local credentials; stored jobs contain only necessary non-secret data.",
+        "UI distinguishes pending, failed and delivered state without claiming success for an unsent event."
+      ],
+      "validation": [
+        "Run eligibility/deduplication/outbox tests with a fake service.",
+        "Verify real authorized test submissions by reading account history."
+      ],
+      "external_requirement": "Requires an owner-authorized scrobbling test account/API credentials and permission for test submissions. The feature is opt-in for users, but its implementation is part of this delivery.",
+      "priority": "P1",
+      "parallel_with": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-package"
+      ]
+    },
+    {
+      "key": "data-transfer",
+      "number": 31,
+      "title": "Deliver backup, export/import and library relocation",
+      "area": "storage",
+      "blocked_by": [
+        "library",
+        "queue",
+        "tags",
+        "youtube-library",
+        "discogs-import",
+        "collections"
+      ],
+      "ownership": [
+        "crates/storage/src/backup/**",
+        "apps/desktop/src/ui/data_transfer/**",
+        "crates/library/src/relocation/**"
+      ],
+      "outcome": "Back up and move the collection’s app-owned state, restore it safely, and relocate local media roots without losing identities.",
+      "deliverables": [
+        "Implement versioned export/import for preferences, playlists/queue, ratings/history, folder roots and allowed analysis/provenance.",
+        "Exclude credentials and disallowed provider caches; distinguish app-state backup from copying a user’s music files.",
+        "Implement validation, collision/merge review, root remapping, restore recovery and corrupted/incompatible archive handling."
+      ],
+      "acceptance": [
+        "Export→fresh install→import restores the supported state with explicit path remapping and unavailable items.",
+        "Restored identities preserve queue links, album analyses and metadata provenance when the referenced audio is unchanged.",
+        "Secrets, signed URLs and unsupported retained provider content do not enter the export.",
+        "Partial/corrupt/incompatible imports preserve the existing valid database and provide recovery.",
+        "A moved media root can be repaired through the UI without rebuilding user ratings/history."
+      ],
+      "validation": [
+        "Run round-trip, migration, collision, tamper/corruption and interruption tests.",
+        "Exercise backup/restore and root relocation on a clean packaged installation."
+      ],
+      "external_requirement": "",
+      "priority": "P0",
+      "parallel_with": [
+        "windows-package"
+      ]
+    },
+    {
+      "key": "windows-package",
+      "number": 32,
+      "title": "Produce reproducible Windows installers and release artifacts",
+      "area": "release",
+      "blocked_by": [
+        "local-playback",
+        "credentials",
+        "asio"
+      ],
+      "ownership": [
+        "packaging/windows/**",
+        ".github/workflows/package-windows.yml",
+        "docs/SETUP_WINDOWS.md",
+        "docs/RELEASE.md"
+      ],
+      "outcome": "Build an installable Windows player from a clean checkout and verify install, upgrade, launch and uninstall.",
+      "deliverables": [
+        "Produce portable and installer artifacts with the pinned MSVC/GPUI Kit/ASIO requirements and required runtime dependencies.",
+        "Add package CI, checksums, dependency/license notices, app metadata and file-association handling.",
+        "Keep design-reference art, test credentials and personal library data out of production packages."
+      ],
+      "acceptance": [
+        "A clean Windows VM/user can install and run the packaged player and play a local FLAC file.",
+        "Upgrade preserves valid user data and uninstall behavior is explicit and tested.",
+        "ASIO-enabled builds include the app’s backend support without silently installing a vendor driver.",
+        "Artifacts identify source commit/toolchain and carry checksums plus required notices.",
+        "Signing is reported accurately; if signing credentials are unavailable, produce a clearly unsigned private artifact rather than falsely claiming a signed release."
+      ],
+      "validation": [
+        "Run clean package/install/upgrade/uninstall checks and inspect artifact contents.",
+        "Verify CI artifacts and compare the packaged source SHA with the repository commit."
+      ],
+      "external_requirement": "Authenticode signing, if chosen, requires the owner’s certificate/service. Publishing a release or distributing outside the private project requires the owner’s explicit authorization; producing reviewable private CI artifacts is the task.",
+      "priority": "P0",
+      "parallel_with": [
+        "library",
+        "queue",
+        "scan",
+        "tags",
+        "youtube-library",
+        "youtube-playback",
+        "discogs-adapter",
+        "discogs-import",
+        "signal-path",
+        "recovery",
+        "accessibility",
+        "performance",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "data-transfer"
+      ]
+    },
+    {
+      "key": "macos",
+      "number": 33,
+      "title": "Deliver the complete macOS desktop port",
+      "area": "platform",
+      "blocked_by": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-integration",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "data-transfer"
+      ],
+      "ownership": [
+        "crates/platform/src/macos/**",
+        "crates/audio/src/output/coreaudio/**",
+        "packaging/macos/**",
+        ".github/workflows/package-macos.yml",
+        "docs/SETUP_MACOS.md"
+      ],
+      "outcome": "Run the full agreed player on macOS using native desktop/audio/account integration and produce a usable application bundle.",
+      "deliverables": [
+        "Implement CoreAudio device/rate/format handling, media controls, dialogs, credential storage, theme observation and native lifecycle.",
+        "Adapt the existing GPUI Kit shell while keeping all portable library, queue, gain, CUE, tagging, Discogs and streaming workflows.",
+        "Provide a reproducible bundle/package and document the tested macOS/architecture baseline; ASIO remains a Windows-specific backend."
+      ],
+      "acceptance": [
+        "The macOS app completes local/remote playback, queue, ReplayGain, metadata/artwork, Discogs, CUE and account flows.",
+        "The signal path reports actual CoreAudio negotiation and hardware uncertainty.",
+        "Appearance/keyboard/IME/assistive behavior and sleep/device-loss recovery are verified on the target OS.",
+        "A clean supported Mac can install/run the produced bundle, with accurate signing/notarization status.",
+        "The port is a completed deliverable in this issue set rather than an unimplemented platform abstraction."
+      ],
+      "validation": [
+        "Run portable tests plus real macOS audio/UI/lifecycle/VoiceOver checks.",
+        "Validate bundle installation and source-commit/checksum evidence."
+      ],
+      "external_requirement": "Requires a supported macOS runner and actual platform/audio validation. Distribution signing/notarization requires owner credentials if requested; label unsigned private artifacts accurately.",
+      "priority": "P1",
+      "parallel_with": [
+        "linux"
+      ]
+    },
+    {
+      "key": "linux",
+      "number": 34,
+      "title": "Deliver the complete Linux desktop port",
+      "area": "platform",
+      "blocked_by": [
+        "youtube-discovery",
+        "discogs-import",
+        "signal-path",
+        "windows-integration",
+        "collections",
+        "sleep",
+        "lyrics",
+        "scrobbling",
+        "data-transfer"
+      ],
+      "ownership": [
+        "crates/platform/src/linux/**",
+        "crates/audio/src/output/linux/**",
+        "packaging/linux/**",
+        ".github/workflows/package-linux.yml",
+        "docs/SETUP_LINUX.md"
+      ],
+      "outcome": "Run the full agreed player on a documented Linux desktop baseline with working audio, credentials and packaging.",
+      "deliverables": [
+        "Implement the selected Linux audio/session backend, device/rate handling, MPRIS/media controls, dialogs, credential integration and theme observation.",
+        "Verify GPUI Kit dependencies and Wayland/X11 behavior, keeping the portable feature set and truthful output inspector.",
+        "Produce an installable Linux artifact and setup guidance for a concrete supported distribution rather than claiming every distribution."
+      ],
+      "acceptance": [
+        "The target Linux desktop completes local/remote playback, queue, ReplayGain, CUE, metadata/artwork, Discogs and account flows.",
+        "The output inspector distinguishes app negotiation from server/device processing and reports unavailable information honestly.",
+        "Unavailable keyring/session services have an explicit secure session-only/reconnect behavior rather than plaintext credential fallback.",
+        "Windowing, keyboard/IME/assistive behavior, media controls and sleep/device-loss recovery are checked on the supported environment.",
+        "A clean supported Linux installation can install/run the artifact, with source SHA, dependencies and checksums documented."
+      ],
+      "validation": [
+        "Run portable tests plus native Linux audio/UI/session checks under the declared display backend(s).",
+        "Verify package contents and installation on the documented distribution."
+      ],
+      "external_requirement": "Requires a graphical supported Linux environment with an audio device/session service; a headless compile alone does not validate playback or desktop integration.",
+      "priority": "P1",
+      "parallel_with": [
+        "macos"
+      ]
+    },
+    {
+      "key": "acceptance",
+      "number": 35,
+      "title": "Validate the complete app and produce the final delivery evidence",
+      "area": "delivery",
+      "blocked_by": [
+        "recovery",
+        "accessibility",
+        "performance",
+        "windows-package",
+        "macos",
+        "linux"
+      ],
+      "ownership": [
+        "tests/end_to_end/**",
+        "docs/validation/ACCEPTANCE.md",
+        "docs/implementation/README.md",
+        "final packaged build verification"
+      ],
+      "outcome": "Prove that every required feature works together in installable builds and close the delivery only with reproducible end-to-end evidence.",
+      "deliverables": [
+        "Build a complete requirement-to-test/artifact matrix covering PRODUCT.md, TECH_SPEC.md, DESIGN.md and every child issue.",
+        "Run integrated workflows from clean installs and existing-data upgrades on Windows, macOS and Linux.",
+        "Produce final private review artifacts from the accepted source commit and fix integration defects discovered by the matrix."
+      ],
+      "acceptance": [
+        "Windows evidence includes actual FiiO K3 ASIO, WASAPI Shared/Exclusive, decoder correctness, gapless, queue restore and gain/peak behavior.",
+        "Real account evidence includes YouTube Music search/library/playback/source switching and permitted playlist actions, plus Discogs whole-album tags and artwork.",
+        "CUE, metadata preservation, backup/restore, smart collections, lyrics, sleep timer, scrobbling, accessibility and failure recovery are exercised.",
+        "macOS/Linux packages complete the supported-platform matrix, with genuine native evidence and accurate capability differences.",
+        "Artifacts install/run, identify the final SHA and checksums, and contain required notices without private data or reference art.",
+        "No accepted feature is closed through a mock, deferred integration task, waived hardware assertion or unspecified next milestone."
+      ],
+      "validation": [
+        "Run the complete native E2E/acceptance matrix and all declared automated checks.",
+        "Record unresolved external requirements as blockers and keep this issue/delivery tracker open until resolved."
+      ],
+      "external_requirement": "Needs authorized real account actions, the FiiO K3 Windows setup and supported macOS/Linux environments. Clearly separate automated, observed hardware and owner-supplied evidence.",
+      "priority": "P0",
+      "parallel_with": []
+    }
+  ]
+}

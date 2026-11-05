@@ -1,0 +1,72 @@
+[
+  {
+    "title": "Solo Piano",
+    "artist": "Akira Kosemura",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b3/11/5f/b3115f5f-57b7-6ad7-eba6-5ce641fb6ca7/26UMGIM98558.rgb.jpg/600x600bb.jpg",
+    "asset": "assets/album-0.jpg",
+    "local": true
+  },
+  {
+    "title": "How's It Goin'",
+    "artist": "Bryan Adams",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/de/9f/f5/de9ff595-ff1c-e4ab-e5ca-09e43f57386c/5059449450919.png/600x600bb.jpg",
+    "asset": "assets/album-1.jpg",
+    "local": false
+  },
+  {
+    "title": "歩幅 - EP",
+    "artist": "BoA",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/c4/43/79/c44379df-31f3-c7db-4e39-55dd3bbc4725/ANTCD-76472.jpg/600x600bb.jpg",
+    "asset": "assets/album-2.jpg",
+    "local": true
+  },
+  {
+    "title": "M25",
+    "artist": "Mika Nakashima",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/c9/bd/b3c9bd38-0aa1-f69a-05a5-9b07a4de4e9b/4547366862355.jpg/600x600bb.jpg",
+    "asset": "assets/album-3.jpg",
+    "local": true
+  },
+  {
+    "title": "self-covers. - Single",
+    "artist": "eill",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fe/db/1e/fedb1e76-2392-ef76-9cca-69d58c4342a1/29459.jpg/600x600bb.jpg",
+    "asset": "assets/album-4.jpg",
+    "local": false
+  },
+  {
+    "title": "くたばれマイダーリン - Single",
+    "artist": "LiSA",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e0/d8/1b/e0d81b14-836f-6d9a-d2ff-450f2de70729/4547366862638.jpg/600x600bb.jpg",
+    "asset": "assets/album-5.jpg",
+    "local": true
+  },
+  {
+    "title": "Shabadaba - Single",
+    "artist": "RADWIMPS",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/76/df/cd/76dfcdcb-3f7f-73d4-161a-09fc5fa4266c/0881061683940_Cover.jpg/600x600bb.jpg",
+    "asset": "assets/album-6.jpg",
+    "local": true
+  },
+  {
+    "title": "dot - Single",
+    "artist": "yama",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d2/06/34/d206347c-2045-1ebd-532a-f465008d7c83/4547366862607.jpg/600x600bb.jpg",
+    "asset": "assets/album-7.jpg",
+    "local": false
+  },
+  {
+    "title": "MISS ME - Single",
+    "artist": "keshi",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/91/3a/26913afa-af16-b47b-e76a-7e5021148801/26UM1IM31835.rgb.jpg/600x600bb.jpg",
+    "asset": "assets/album-8.jpg",
+    "local": true
+  },
+  {
+    "title": "KAGEBOUSHI - Single",
+    "artist": "Shikao Suga",
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/82/91/53/829153b1-a997-8464-4237-502b623353b2/VEATP-46052.jpg/600x600bb.jpg",
+    "asset": "assets/album-9.jpg",
+    "local": true
+  }
+]
