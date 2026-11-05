@@ -1,0 +1,147 @@
+{
+  "observed_at_utc": "2026-11-05T19:01:22+00:00",
+  "scope": "Public source excerpts and one cover-list lookup; no image bytes, credentials or account actions.",
+  "sources": [
+    {
+      "url": "https://coverartarchive.org/",
+      "status": 200,
+      "sha256": "d2b96c5a9d484e0893aee8e1abf5c1e7812aa38f951d8a2a97b1f7fa106a2c80",
+      "excerpts": [
+        "MusicBrainz also provides API documentation for retrieving cover art via a release MBID. A C-based client library libcoverart is available, as well as the Java coverartarchive-api library.",
+        "All images are copyrighted by their respective copyright owners."
+      ]
+    },
+    {
+      "url": "https://musicbrainz.org/doc/Cover_Art_Archive",
+      "status": 200,
+      "sha256": "b4c42c31015ef07c5d70a0a158c996709fac99cdf55569c75cb5d91d2ea3dab0",
+      "excerpts": [
+        "These covers are being collected for archival purposes, and the collection will be accessible to the public. Use the images at your own risk. The Internet Archive's policy can be read here."
+      ]
+    },
+    {
+      "url": "https://musicbrainz.org/doc/Cover_Art_Archive/API",
+      "status": 200,
+      "sha256": "9ed24d8af942c42070279d02206080c278192d9272d186a388a500fb77f414b1",
+      "excerpts": [
+        "2 /release/{mbid}/front",
+        "5 /release/{mbid}/({id}|front|back)-(250|500|1200)",
+        "6 /release-group/{mbid}/",
+        "7 /release-group/{mbid}/front[-(250|500|1200)]",
+        "9 Rate limiting rules",
+        "503 if the user has exceeded their rate limit.Example",
+        "< HTTP/1.0 200 OK < Status: 200 { \"images\":[ { \"types\":[ \"Front\" ], \"front\":true, \"back\":false, \"edit\":17462565, \"image\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842.jpg\", \"comment\":\"\", \"approved\":true, \"id\":\"829521842\", \"thumbnails\":{ \"250\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842-250.jpg\", \"500\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842-500.jpg\", \"1200\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842-1200.jpg\", \"small\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842-250.jpg\", \"large\":\"http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/829521842-500.jpg\" } } ], \"release\":\"http://musicbrainz.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd\" }",
+        "/release/{mbid}/front",
+        "Fetches the image that is most suitable to be called the \"front\" of a release. This is intentionally vague, and users will help curate this data into something that is meaningful, but here you'll find the artwork that users would most likely expect to see in:",
+        "307 if the community have decided upon a \"front\" image for this release.",
+        "404 if there is either no release with this MBID, or the community have not chosen an image to represent the front of a release.",
+        "503 if the user has exceeded their rate limit.Example",
+        "> GET /release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/front HTTP/1.1 > Host: coverartarchive.org",
+        "503 if the user has exceeded their rate limit.Example",
+        "503 if the user has exceeded their rate limit.Example",
+        "/release/{mbid}/({id}|front|back)-(250|500|1200)",
+        "503 if the user has exceeded their rate limit.Example",
+        "/release-group/{mbid}/",
+        "503 if the user has exceeded their rate limit.Example",
+        "> GET /release-group/c31a5e2b-0bf8-32e0-8aeb-ef4ba9973932 HTTP/1.1 > Host: coverartarchive.org > Accept: application/json",
+        "< HTTP/1.1 200 OK < Status: 200 { \"release\":\"https://musicbrainz.org/release/f268b8bc-2768-426b-901b-c7966e76de29\", \"images\":[ { \"edit\":37284546, \"id\":\"12750224075\", \"image\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075.png\", \"thumbnails\":{ \"250\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075-250.jpg\", \"500\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075-500.jpg\", \"1200\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075-1200.jpg\", \"small\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075-250.jpg\", \"large\":\"http://coverartarchive.org/release/f268b8bc-2768-426b-901b-c7966e76de29/12750224075-500.jpg\" }, \"comment\":\"\", \"approved\":true, \"front\":false, \"types\":[ \"Back\" ], \"back\":true } ] }",
+        "/release-group/{mbid}/front[-(250|500|1200)]",
+        "Fetches the image that is most suitable to be called the \"front\" of a release group (or one of its thumbnails). This is intentionally vague, and users will help curate this data into something that is meaningful, but here you'll find the artwork that users would most likely expect to see in:",
+        "307 if the community have decided upon a \"front\" image for this release group.",
+        "404 if there is either no release with this MBID, or the community have not chosen an image to represent the front of a release.",
+        "503 if the user has exceeded their rate limit.Example",
+        "> GET /release-group/48140466-cff6-3222-bd55-63c27e43190d/front HTTP/1.1 > Host: coverartarchive.org",
+        "Rate limiting rules",
+        "There are currently no rate limiting rules in place at http://coverartarchive.org.",
+        "The Cover Art Archive provides a collection of metadata with each release, which allows users to determine what cover art can be used for. The metadata will be stored and served as application/json. The metadata consists of a ordered list of entries, where each entry contains: imagethe full coverartarchive.org url to the original imagethumbnailsobject containing the keys \"250\", \"500\", and \"1200\" linking to thumbnails of those sizes (in pixels); \"small\" and \"large\" are deprecated keys and are equivalent to \"250\" and \"500\", respectivelytypeslist of zero or more types for the image (see the list).frontboolean, indicates if this is the \"main front\" (returned by /front)backboolean, indicates if this is the \"main back\" (returned by /back)commenta free text commentapprovedwhether the image was approved by the musicbrainz edit systemeditthe edit id on musicbrainz (e.g. 123)idarchive.org's internal file id",
+        "{ \"images\" : [ { \"types\" : [ \"Front\" ], \"front\" : true, \"back\" : false, \"comment\" : \"\", \"image\" : \"http://coverartarchive.org/...jpg\", \"thumbnails\" : { \"small\" : \"http://coverartarchive.org/...-250.jpg\", \"large\" : \"http://coverartarchive.org/...-500.jpg\" }, \"approved\" : true, \"edit\" : 123, \"id\" : \"456\" }, { \"types\" : [ \"Other\" ], \"front\" : false, \"back\" : false, \"comment\" : \"autographed by ModBot\", \"image\" : \"http://coverartarchive.org/...jpg\", \"thumbnails\" : { \"250\" : \"http://coverartarchive.org/...-250.jpg\", \"500\" : \"http://coverartarchive.org/...-500.jpg\", \"1200\" : \"http://coverartarchive.org/...-1200.jpg\", \"small\" : \"http://coverartarchive.org/...-250.jpg\", \"large\" : \"http://coverartarchive.org/...-500.jpg\" }, \"approved\" : true, \"edit\" : 124, \"id\" : \"457\" } ], \"release\" : \"http://musicbrainz.org/release/2ba4396d-c0be-4a56-b4ea-0438306eb3be\" }"
+      ]
+    },
+    {
+      "url": "https://musicbrainz.org/doc/MusicBrainz_API",
+      "status": 200,
+      "sha256": "06c73e0f97eeeed51605ea322f429133500393bc394b78e5d0ff05bd38933663",
+      "excerpts": [
+        "What can I do with the MusicBrainz API?You can look up information about a particular MusicBrainz entity (\"give me info about The Beatles\"), browse the data to find entities connected to a particular entity (\"show me all releases by The Beatles\"), or search for entities matching a specific query (\"show me all artists matching the query 'Beatles' so I can find the one I want and ask for more data\").Who can use the MusicBrainz API? Is it free?Non-commercial use of this web service is free; please see our commercial plans or contact us if you would like to use this service commercially.Do I need an API key?Currently, no. But you must have a meaningful user-agent string.Do I need to provide authentication?See MusicBrainz_API#Authentication.Which formats can I get the data in?The API was originally written to return XML, but nowadays it can also return JSON.Is there any significant difference between the XML and JSON APIs?For requesting data, the XML and JSON API are effectively equivalent. The XML API is the only one that allows submitting data to MusicBrainz (but keep in mind only ratings, tags, barcodes and ISRCs can be submitted via the API at all; for most data additions you should use the website instead).Is there a limit to the number of requests I can make per second?Yes. See our rate limiting rules.This seems very complicated, can I see some examples?Yes, we have an example page showcasing some queries and showing the returned format you can expect for each.Are there language bindings for the API?Yes, in many different languages. See our list of external libraries.What should I do if I encounter unexpected behaviour not covered in these docs?You can ask question in IRC or in the forums.Check to see if a ticket has been filed in the bug tracker, and if not consider writing one.What else should I know before I start using the API?It'd probably be helpful to know:",
+        "All users of the API must ensure that each of their client applications never make more than ONE call per second. Making more than one call per second drives up the load on the servers and prevents others from using the MusicBrainz API. If you impact the server by making more than one call per second, your IP address may be blocked preventing all further access to MusicBrainz. Also, it is important that your application sets a proper User-Agent string in its HTTP request headers. For more details on both of these requirements, please see our rate limiting page.",
+        "Data submission, as well as requests that involve user information, require authentication. You can authenticate using OAuth, or digest authentication over HTTPS; for digest authentication, users must generate a token from their Applications page which is to be used in place of their account password."
+      ]
+    }
+  ],
+  "lookup": [
+    {
+      "url": "https://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd/",
+      "status": 307,
+      "sha256": "cfa20cfdca0434c68fc5189ab445f4e3ff10e5e2d1bccd146f11b3388247e428",
+      "headers": {
+        "date": "Thu, 05 Nov 2026 19:01:28 GMT",
+        "content-type": "text/plain; charset=utf-8",
+        "location": "https://archive.org/download/mbid-76df3287-6cda-33eb-8e9a-044b5e15ffdd/index.json"
+      }
+    },
+    {
+      "url": "https://archive.org/download/mbid-76df3287-6cda-33eb-8e9a-044b5e15ffdd/index.json",
+      "status": 302,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "date": "Thu, 05 Nov 2026 19:01:29 GMT",
+        "content-type": "text/html; charset=UTF-8",
+        "location": "https://dn711103.ca.archive.org/0/items/mbid-76df3287-6cda-33eb-8e9a-044b5e15ffdd/index.json"
+      }
+    },
+    {
+      "url": "https://dn711103.ca.archive.org/0/items/mbid-76df3287-6cda-33eb-8e9a-044b5e15ffdd/index.json",
+      "status": 200,
+      "sha256": "3543ed1e520af49ee087813445ea244e12f510c5b1737142759fa2ec79d38f70",
+      "headers": {
+        "date": "Thu, 05 Nov 2026 19:01:31 GMT",
+        "content-type": "application/json"
+      },
+      "response": {
+        "release": "https://musicbrainz.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd",
+        "image_count": 6,
+        "image_fields": [
+          "approved",
+          "back",
+          "comment",
+          "edit",
+          "front",
+          "id",
+          "image",
+          "thumbnails",
+          "types"
+        ],
+        "images": [
+          {
+            "approved": true,
+            "back": false,
+            "front": true,
+            "id": 829521842,
+            "types": [
+              "Front"
+            ]
+          },
+          {
+            "approved": true,
+            "back": false,
+            "front": false,
+            "id": 24546038908,
+            "types": [
+              "Front",
+              "Booklet"
+            ]
+          },
+          {
+            "approved": true,
+            "back": false,
+            "front": false,
+            "id": 24546039829,
+            "types": [
+              "Booklet"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

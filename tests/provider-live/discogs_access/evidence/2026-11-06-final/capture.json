@@ -1,0 +1,2877 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-11-05T18:39:24+00:00",
+  "source_commit": "815207e200c8e7d633458c2682ebfcb239043fc2",
+  "environment": {
+    "os": "Linux",
+    "python": "3.11.17"
+  },
+  "access": "Public HTTP only. No credentials, cookies, account sessions or image GETs.",
+  "observations": [
+    {
+      "observed_at_utc": "2026-11-05T18:39:28+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/database/search?artist=Rick%20Astley&release_title=Never%20Gonna%20Give%20You%20Up&type=release&per_page=2",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:28 GMT",
+        "content-type": "application/json",
+        "cache-control": "public, must-revalidate",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "24",
+        "x-discogs-ratelimit-used": "1"
+      },
+      "body_bytes": 2499,
+      "body_sha256": "572b096e4ef97e850f552d295b7c652701d499bd60f697620a6f4201fcd43df0",
+      "name": "search",
+      "response": {
+        "pagination": {
+          "page": 1,
+          "pages": 36,
+          "per_page": 2,
+          "items": 71,
+          "urls": {
+            "last": "https://api.discogs.com/database/search?artist=Rick+Astley&release_title=Never+Gonna+Give+You+Up&type=release&per_page=2&page=36",
+            "next": "https://api.discogs.com/database/search?artist=Rick+Astley&release_title=Never+Gonna+Give+You+Up&type=release&per_page=2&page=2"
+          }
+        },
+        "results": [
+          {
+            "country": "Europe",
+            "year": "1987",
+            "format": [
+              "Vinyl",
+              "7\"",
+              "45 RPM",
+              "Single",
+              "Stereo"
+            ],
+            "label": [
+              "RCA",
+              "RCA",
+              "Bertelsmann Music Group",
+              "BMG Records (UK) Ltd.",
+              "BMG Records",
+              "BMG Records (UK) Ltd.",
+              "All Boys Music Ltd.",
+              "RCA Records",
+              "RCA Records",
+              "BMG Records",
+              "BMG Ariola",
+              "Sonopress"
+            ],
+            "type": "release",
+            "genre": [
+              "Electronic",
+              "Pop"
+            ],
+            "style": [
+              "Dance-pop",
+              "Synth-pop"
+            ],
+            "id": 1260449,
+            "barcode": [
+              "5 012394 144777",
+              "5012394144777",
+              "BIEM",
+              "GEMA",
+              "LC 0316",
+              "AC",
+              "RC110",
+              "AA",
+              "DM DSB-9147 A-1/8-87 II",
+              "DM DSB-9147 B-1/8-87",
+              "DM DSB-9147 A-1/8-87 III",
+              "DM DSB-9147 B-1/8-87 II",
+              "DM DSB-9147 A-1/8-87",
+              "DM DSB-9147 B-1/8-87",
+              "DM DSB-9147 A-1/8-87 IV",
+              "DM DSB-9147 B-1/8-87 II",
+              "DM DSB-9147 A-1/8-87 III",
+              "DM DSB-9147 B-1/8-87 III",
+              "DM DSB-9147 A-1/8-87 II",
+              "DM DSB-9147 B-1/8-87 II",
+              "DM DSB-9147 A-1/8-87 IV",
+              "DM DSB-9147 B-1/8-87 III",
+              "DM DSB-9147 A-1/8-87 II",
+              "DM DSB-9147 B-1/8-87 IV",
+              "DM DSB-9147 A-1/8-87 III",
+              "DM DSB-9147 B-1/8-87 IV",
+              "DM DSB-9147 A-1/8-87 II",
+              "DM DSB-9147 B-1/8-87 III"
+            ],
+            "master_id": 96559,
+            "master_url": "https://api.discogs.com/masters/96559",
+            "uri": "/release/1260449-Rick-Astley-Never-Gonna-Give-You-Up",
+            "catno": "PB41447",
+            "title": "Rick Astley - Never Gonna Give You Up",
+            "thumb": "",
+            "cover_image": "",
+            "resource_url": "https://api.discogs.com/releases/1260449",
+            "format_quantity": 1,
+            "formats": [
+              {
+                "name": "Vinyl",
+                "qty": "1",
+                "descriptions": [
+                  "7\"",
+                  "45 RPM",
+                  "Single",
+                  "Stereo"
+                ]
+              }
+            ]
+          },
+          {
+            "country": "Spain",
+            "year": "1987",
+            "format": [
+              "Vinyl",
+              "12\"",
+              "45 RPM",
+              "Maxi-Single"
+            ],
+            "label": [
+              "RCA",
+              "RCA, S.A.",
+              "RCA, S.A.",
+              "Iberofon, S.A.",
+              "Indugraf Madrid, S.A.",
+              "BMG Records Ltd."
+            ],
+            "type": "release",
+            "genre": [
+              "Electronic",
+              "Pop"
+            ],
+            "style": [
+              "Synth-pop"
+            ],
+            "id": 3817826,
+            "barcode": [
+              "S.G.A.E.",
+              "M-28675-1987"
+            ],
+            "master_id": 96559,
+            "master_url": "https://api.discogs.com/masters/96559",
+            "uri": "/release/3817826-Rick-Astley-Never-Gonna-Give-You-Up",
+            "catno": "PT-41448",
+            "title": "Rick Astley - Never Gonna Give You Up",
+            "thumb": "",
+            "cover_image": "",
+            "resource_url": "https://api.discogs.com/releases/3817826",
+            "format_quantity": 1,
+            "formats": [
+              {
+                "name": "Vinyl",
+                "qty": "1",
+                "descriptions": [
+                  "12\"",
+                  "45 RPM",
+                  "Maxi-Single"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "omitted_json_paths": [
+        "/results/0/community",
+        "/results/1/community"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:32+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/database/search?barcode=5012394144777&type=release&per_page=1",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:32 GMT",
+        "content-type": "application/json",
+        "cache-control": "public, must-revalidate",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "23",
+        "x-discogs-ratelimit-used": "2"
+      },
+      "body_bytes": 1090,
+      "body_sha256": "0701ea71e6d77ac3816b552ef77b988f97b8012f111e7f8feec5921cfdb501c0",
+      "name": "barcode",
+      "response": {
+        "pagination": {
+          "page": 1,
+          "pages": 8,
+          "per_page": 1,
+          "items": 8,
+          "urls": {
+            "last": "https://api.discogs.com/database/search?barcode=5012394144777&type=release&per_page=1&page=8",
+            "next": "https://api.discogs.com/database/search?barcode=5012394144777&type=release&per_page=1&page=2"
+          }
+        },
+        "results": [
+          {
+            "country": "UK",
+            "year": "1987",
+            "format": [
+              "Vinyl",
+              "7\"",
+              "45 RPM",
+              "Single"
+            ],
+            "label": [
+              "RCA",
+              "BMG Records (UK) Ltd.",
+              "BMG Records (UK) Ltd.",
+              "Pete Waterman Ltd.",
+              "All Boys Music Ltd.",
+              "BMG Records",
+              "BMG Ariola",
+              "RCA Records",
+              "Utopia Studios",
+              "RCA"
+            ],
+            "type": "release",
+            "genre": [
+              "Electronic",
+              "Pop"
+            ],
+            "style": [
+              "Synth-pop"
+            ],
+            "id": 6778478,
+            "barcode": [
+              "5012394144777",
+              "LC 0316"
+            ],
+            "master_id": 96559,
+            "master_url": "https://api.discogs.com/masters/96559",
+            "uri": "/release/6778478-Rick-Astley-Never-Gonna-Give-You-Up",
+            "catno": "PB 41447P",
+            "title": "Rick Astley - Never Gonna Give You Up",
+            "thumb": "",
+            "cover_image": "",
+            "resource_url": "https://api.discogs.com/releases/6778478",
+            "format_quantity": 1,
+            "formats": [
+              {
+                "name": "Vinyl",
+                "qty": "1",
+                "text": "Poster Bag",
+                "descriptions": [
+                  "7\"",
+                  "45 RPM",
+                  "Single"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "omitted_json_paths": [
+        "/results/0/community"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:35+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/releases/249504",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:35 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "22",
+        "x-discogs-ratelimit-used": "3"
+      },
+      "body_bytes": 17773,
+      "body_sha256": "66f4bf1cbcb5d5bba861ee1570181d786d3bc3dba63c5d9e9778a78c626ce90b",
+      "name": "release",
+      "response": {
+        "id": 249504,
+        "status": "Accepted",
+        "year": 1987,
+        "resource_url": "https://api.discogs.com/releases/249504",
+        "uri": "https://www.discogs.com/release/249504-Rick-Astley-Never-Gonna-Give-You-Up",
+        "artists": [
+          {
+            "name": "Rick Astley",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 72872,
+            "resource_url": "https://api.discogs.com/artists/72872"
+          }
+        ],
+        "artists_sort": "Rick Astley",
+        "labels": [
+          {
+            "name": "RCA",
+            "catno": "PB 41447",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 895,
+            "resource_url": "https://api.discogs.com/labels/895"
+          }
+        ],
+        "formats": [
+          {
+            "name": "Vinyl",
+            "qty": "1",
+            "descriptions": [
+              "7\"",
+              "45 RPM",
+              "Single",
+              "Stereo"
+            ]
+          }
+        ],
+        "data_quality": "Correct",
+        "format_quantity": 1,
+        "master_id": 96559,
+        "master_url": "https://api.discogs.com/masters/96559",
+        "title": "Never Gonna Give You Up",
+        "country": "UK",
+        "released": "1987-07-00",
+        "notes": "UK Release has a black label with the text \"Manufactured In England\" printed on it.\n\nSleeve:\n℗ 1987 • BMG Records (UK) Ltd. © 1987 • BMG Records (UK) Ltd.\nDistributed in the UK by BMG Records •  Distribué en Europe par BMG/Ariola • Vertrieb en Europa dürch BMG/Ariola.\n\nCenter labels:\n℗ 1987 Pete Waterman Ltd.\nOriginal Sound Recording made by PWL.\nBMG Records (UK) Ltd. are the exclusive licensees for the world.\n\nDurations do not appear on the release.\n\nRunouts are etched, except 'B' stamp in variant '3. 'MS' is encircled. ",
+        "released_formatted": "Jul 1987",
+        "identifiers": [
+          {
+            "type": "Barcode",
+            "value": "5012394144777"
+          },
+          {
+            "type": "Label Code",
+            "value": "LC 0316"
+          },
+          {
+            "type": "Price Code",
+            "value": "AC",
+            "description": "D:"
+          },
+          {
+            "type": "Price Code",
+            "value": "RC110",
+            "description": "F:"
+          },
+          {
+            "type": "Price Code",
+            "value": "AA",
+            "description": "UK:"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 A‡",
+            "description": "A side label"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 B‡",
+            "description": "B side label"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 A2 UTOPIA MS",
+            "description": "A side runout, variant 1"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447-B.2 UTOPIA MS",
+            "description": "B side runout, variant 1"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 A4 UTOPIA MS.",
+            "description": "A side runout, variant 2"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 B4 UTOPIA MS ♥ RD.",
+            "description": "B side runout, variant 2"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447 A2 UTOPIA MS B",
+            "description": "A side runout, variant 3"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "PB 41447-B.2 B UTOPIA MS",
+            "description": "B side runout, variant 3"
+          }
+        ],
+        "genres": [
+          "Electronic",
+          "Pop"
+        ],
+        "styles": [
+          "Euro-Disco"
+        ],
+        "tracklist": [
+          {
+            "position": "A",
+            "type_": "track",
+            "title": "Never Gonna Give You Up",
+            "duration": "3:32"
+          },
+          {
+            "position": "B",
+            "type_": "track",
+            "title": "Never Gonna Give You Up (Instrumental)",
+            "duration": "3:30"
+          }
+        ],
+        "extraartists": [
+          {
+            "name": "Me Company",
+            "anv": "Me Co",
+            "join": "",
+            "role": "Design",
+            "tracks": "",
+            "id": 547352,
+            "resource_url": "https://api.discogs.com/artists/547352"
+          },
+          {
+            "name": "Mark McGuire",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "",
+            "id": 78275,
+            "resource_url": "https://api.discogs.com/artists/78275"
+          },
+          {
+            "name": "Mike Duffy",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "",
+            "id": 95941,
+            "resource_url": "https://api.discogs.com/artists/95941"
+          },
+          {
+            "name": "Miles Showell",
+            "anv": "MS",
+            "join": "",
+            "role": "Lacquer Cut By",
+            "tracks": "",
+            "id": 383408,
+            "resource_url": "https://api.discogs.com/artists/383408"
+          },
+          {
+            "name": "Pete Hammond",
+            "anv": "Mixmaster Pete Hammond",
+            "join": "",
+            "role": "Mixed By",
+            "tracks": "",
+            "id": 34067,
+            "resource_url": "https://api.discogs.com/artists/34067"
+          },
+          {
+            "name": "Stock, Aitken & Waterman",
+            "anv": "Stock / Aitken / Waterman",
+            "join": "",
+            "role": "Producer, Written-By",
+            "tracks": "",
+            "id": 20942,
+            "resource_url": "https://api.discogs.com/artists/20942"
+          }
+        ],
+        "images": [
+          {
+            "type": "primary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          }
+        ],
+        "thumb": "[REDACTED image URL]"
+      },
+      "omitted_json_paths": [
+        "/artists/0/thumbnail_url",
+        "/labels/0/thumbnail_url",
+        "/series",
+        "/companies",
+        "/community",
+        "/date_added",
+        "/date_changed",
+        "/num_for_sale",
+        "/lowest_price",
+        "/videos",
+        "/estimated_weight",
+        "/blocked_from_sale",
+        "/is_offensive"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:36+00:00",
+      "request": {
+        "method": "HEAD",
+        "url": "https://i.discogs.com/[REDACTED image path]",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        },
+        "url_sha256": "01d3fd93964545f1083a6e6161bc02fe914348f99dda84f23d9db38f08c4dd13"
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:36 GMT",
+        "content-type": "image/jpeg",
+        "content-length": "68934",
+        "cache-control": "public, max-age=31536000",
+        "age": "7907620"
+      },
+      "body_bytes": 0,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "image_head",
+      "image_source": {
+        "release_id": 249504,
+        "image_index": 0
+      }
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:39+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/masters/96559",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:39 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "21",
+        "x-discogs-ratelimit-used": "4"
+      },
+      "body_bytes": 9734,
+      "body_sha256": "c3b2dfa1a6f489fc3cecc63e774deb9114a4a46ab40772cf8ed893dd0527b888",
+      "name": "master",
+      "response": {
+        "id": 96559,
+        "main_release": 221824,
+        "most_recent_release": 3341754,
+        "resource_url": "https://api.discogs.com/masters/96559",
+        "uri": "https://www.discogs.com/master/96559-Rick-Astley-Never-Gonna-Give-You-Up",
+        "versions_url": "https://api.discogs.com/masters/96559/versions",
+        "images": [
+          {
+            "type": "primary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 594
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 597
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 592,
+            "height": 600
+          }
+        ],
+        "genres": [
+          "Electronic",
+          "Pop"
+        ],
+        "styles": [
+          "Synth-pop"
+        ],
+        "year": 1987,
+        "tracklist": [
+          {
+            "position": "A",
+            "type_": "track",
+            "title": "Never Gonna Give You Up (Cake Mix)",
+            "duration": "5:47"
+          },
+          {
+            "position": "B1",
+            "type_": "track",
+            "title": "Never Gonna Give You Up (Instrumental)",
+            "duration": "6:21"
+          },
+          {
+            "position": "B2",
+            "type_": "track",
+            "title": "Never Gonna Give You Up",
+            "duration": "3:32"
+          }
+        ],
+        "artists": [
+          {
+            "name": "Rick Astley",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 72872,
+            "resource_url": "https://api.discogs.com/artists/72872"
+          }
+        ],
+        "title": "Never Gonna Give You Up",
+        "data_quality": "Correct"
+      },
+      "omitted_json_paths": [
+        "/main_release_url",
+        "/most_recent_release_url",
+        "/num_for_sale",
+        "/lowest_price",
+        "/artists/0/thumbnail_url",
+        "/videos"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:43+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/masters/96559/versions?per_page=2",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:43 GMT",
+        "content-type": "application/json",
+        "cache-control": "public, must-revalidate",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "20",
+        "x-discogs-ratelimit-used": "5"
+      },
+      "body_bytes": 11098,
+      "body_sha256": "758ac46309cc8ae72ceb8f2ca760f4d4f4549e69b394d1d8e1dd57fe936121eb",
+      "name": "versions",
+      "response": {
+        "pagination": {
+          "page": 1,
+          "pages": 34,
+          "per_page": 2,
+          "items": 67,
+          "urls": {
+            "last": "https://api.discogs.com/masters/96559/versions?per_page=2&page=34",
+            "next": "https://api.discogs.com/masters/96559/versions?per_page=2&page=2"
+          }
+        },
+        "versions": [
+          {
+            "id": 182213,
+            "label": "RCA Victor",
+            "country": "US",
+            "title": "Never Gonna Give You Up",
+            "major_formats": [
+              "Vinyl"
+            ],
+            "format": "12\", 33 ⅓ RPM, Maxi-Single",
+            "catno": "6784-1-RD",
+            "released": "1987",
+            "status": "Accepted",
+            "resource_url": "https://api.discogs.com/releases/182213",
+            "thumb": "[REDACTED image URL]"
+          },
+          {
+            "id": 12442839,
+            "label": "RCA",
+            "country": "UK",
+            "title": "Never Gonna Give You Up",
+            "major_formats": [
+              "Vinyl"
+            ],
+            "format": "7\", 45 RPM, Single",
+            "catno": "PB 41447",
+            "released": "1987",
+            "status": "Accepted",
+            "resource_url": "https://api.discogs.com/releases/12442839",
+            "thumb": "[REDACTED image URL]"
+          }
+        ]
+      },
+      "omitted_json_paths": [
+        "/filters",
+        "/filter_facets",
+        "/versions/0/stats",
+        "/versions/1/stats"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:46+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/masters/96559/versions?per_page=2&page=2",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:46 GMT",
+        "content-type": "application/json",
+        "cache-control": "public, must-revalidate",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "20",
+        "x-discogs-ratelimit-used": "5"
+      },
+      "body_bytes": 11217,
+      "body_sha256": "0dd9bd261e630c4f010a19cbaeeaf8dbdb9de96f09182954429f414fe445706c",
+      "name": "versions_next",
+      "response": {
+        "pagination": {
+          "page": 2,
+          "pages": 34,
+          "per_page": 2,
+          "items": 67,
+          "urls": {
+            "first": "https://api.discogs.com/masters/96559/versions?per_page=2&page=1",
+            "last": "https://api.discogs.com/masters/96559/versions?per_page=2&page=34",
+            "prev": "https://api.discogs.com/masters/96559/versions?per_page=2&page=1",
+            "next": "https://api.discogs.com/masters/96559/versions?per_page=2&page=3"
+          }
+        },
+        "versions": [
+          {
+            "id": 2733429,
+            "label": "RCA",
+            "country": "Greece",
+            "title": "Never Gonna Give You Up",
+            "major_formats": [
+              "Vinyl"
+            ],
+            "format": "12\"",
+            "catno": "RCA 4101",
+            "released": "1987",
+            "status": "Accepted",
+            "resource_url": "https://api.discogs.com/releases/2733429",
+            "thumb": "[REDACTED image URL]"
+          },
+          {
+            "id": 9170850,
+            "label": "RCA",
+            "country": "US",
+            "title": "Never Gonna Give You Up",
+            "major_formats": [
+              "Vinyl"
+            ],
+            "format": "7\", Single, 45 RPM",
+            "catno": "5347-7-R",
+            "released": "1987",
+            "status": "Accepted",
+            "resource_url": "https://api.discogs.com/releases/9170850",
+            "thumb": "[REDACTED image URL]"
+          }
+        ]
+      },
+      "omitted_json_paths": [
+        "/filters",
+        "/filter_facets",
+        "/versions/0/stats",
+        "/versions/1/stats"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:49+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/releases/1890689",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:49 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "19",
+        "x-discogs-ratelimit-used": "6"
+      },
+      "body_bytes": 28677,
+      "body_sha256": "65e05745afd937568822e7f61df0ba8fce8cc858c57a215e4a84303426fe8d71",
+      "name": "two_disc",
+      "response": {
+        "id": 1890689,
+        "status": "Accepted",
+        "year": 2003,
+        "resource_url": "https://api.discogs.com/releases/1890689",
+        "uri": "https://www.discogs.com/release/1890689-Led-Zeppelin-Physical-Graffiti",
+        "artists": [
+          {
+            "name": "Led Zeppelin",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 34278,
+            "resource_url": "https://api.discogs.com/artists/34278"
+          }
+        ],
+        "artists_sort": "Led Zeppelin",
+        "labels": [
+          {
+            "name": "Swan Song",
+            "catno": "WPCR-11616~7",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 34571,
+            "resource_url": "https://api.discogs.com/labels/34571"
+          }
+        ],
+        "formats": [
+          {
+            "name": "CD",
+            "qty": "2",
+            "descriptions": [
+              "Album",
+              "Reissue",
+              "Remastered"
+            ],
+            "text": "Cardboard Sleeve"
+          }
+        ],
+        "data_quality": "Needs Vote",
+        "format_quantity": 2,
+        "master_id": 4392,
+        "master_url": "https://api.discogs.com/masters/4392",
+        "title": "Physical Graffiti",
+        "country": "Japan",
+        "released": "2003-05-28",
+        "notes": "Cardboard sleeve replica of the original UK LP artwork. This version of \"Physical Graffiti\" uses a replica of the original E-style jacket with each of the original window openings fully functonal in this release (previous cardboard sleeve reissues have not been able to accurately duplicate the detail on the original LP up until now). Audio comes from the 1994 digital remasters. Part of a ten-album Led Zeppelin cardboard sleeve reissue series featuring the albums \"Led Zeppelin,\" \"Led Zeppelin II,\" \"Led Zeppelin III,\" \"Led Zeppelin IV,\" \"Houses Of The Holy,\" \"Physical Graffiti,\" \"Presence ,\" \"The Song Remains The Same,\" \"In Through The Out Door,\" and \"Coda.\"",
+        "released_formatted": "28 May 2003",
+        "identifiers": [
+          {
+            "type": "Barcode",
+            "value": "4943674043996"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "WPCR-11616 1",
+            "description": "CD 1"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "WPCR-11617 1",
+            "description": "CD 2"
+          },
+          {
+            "type": "Mastering SID Code",
+            "value": "IFPI L274",
+            "description": "CD 1, 2"
+          },
+          {
+            "type": "Mould SID Code",
+            "value": "IFPI 453B",
+            "description": "CD 1, 2, Variant 1"
+          },
+          {
+            "type": "Mould SID Code",
+            "value": "IFPI 456C",
+            "description": "CD 1, Variant 2"
+          },
+          {
+            "type": "Mould SID Code",
+            "value": "IFPI 455D",
+            "description": "CD 2, Variant 2"
+          },
+          {
+            "type": "Rights Society",
+            "value": "JASRAC"
+          }
+        ],
+        "genres": [
+          "Rock",
+          "Blues"
+        ],
+        "styles": [
+          "Hard Rock",
+          "Blues Rock"
+        ],
+        "tracklist": [
+          {
+            "position": "1-1",
+            "type_": "track",
+            "title": "Custard Pie",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "4:14"
+          },
+          {
+            "position": "1-2",
+            "type_": "track",
+            "title": "The Rover",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "5:37"
+          },
+          {
+            "position": "1-3",
+            "type_": "track",
+            "title": "In My Time Of Dying",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Bonham",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 457468,
+                "resource_url": "https://api.discogs.com/artists/457468"
+              },
+              {
+                "name": "John Paul Jones",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 60149,
+                "resource_url": "https://api.discogs.com/artists/60149"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "11:06"
+          },
+          {
+            "position": "1-4",
+            "type_": "track",
+            "title": "Houses Of The Holy",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "4:02"
+          },
+          {
+            "position": "1-5",
+            "type_": "track",
+            "title": "Trampled Under Foot",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Paul Jones",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 60149,
+                "resource_url": "https://api.discogs.com/artists/60149"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "5:36"
+          },
+          {
+            "position": "1-6",
+            "type_": "track",
+            "title": "Kashmir",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Bonham",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 457468,
+                "resource_url": "https://api.discogs.com/artists/457468"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "8:28"
+          },
+          {
+            "position": "2-1",
+            "type_": "track",
+            "title": "In The Light",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Paul Jones",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 60149,
+                "resource_url": "https://api.discogs.com/artists/60149"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "8:47"
+          },
+          {
+            "position": "2-2",
+            "type_": "track",
+            "title": "Bron-Yr-Aur",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              }
+            ],
+            "duration": "2:06"
+          },
+          {
+            "position": "2-3",
+            "type_": "track",
+            "title": "Down By The Seaside",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "5:16"
+          },
+          {
+            "position": "2-4",
+            "type_": "track",
+            "title": "Ten Years Gone",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "6:33"
+          },
+          {
+            "position": "2-5",
+            "type_": "track",
+            "title": "Night Flight",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Paul Jones",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 60149,
+                "resource_url": "https://api.discogs.com/artists/60149"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "3:37"
+          },
+          {
+            "position": "2-6",
+            "type_": "track",
+            "title": "The Wanton Song",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "4:09"
+          },
+          {
+            "position": "2-7",
+            "type_": "track",
+            "title": "Boogie With Stu",
+            "extraartists": [
+              {
+                "name": "Ian Stewart",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 255182,
+                "resource_url": "https://api.discogs.com/artists/255182"
+              },
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "John Bonham",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 457468,
+                "resource_url": "https://api.discogs.com/artists/457468"
+              },
+              {
+                "name": "John Paul Jones",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 60149,
+                "resource_url": "https://api.discogs.com/artists/60149"
+              },
+              {
+                "name": "Mrs. Valens",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 739654,
+                "resource_url": "https://api.discogs.com/artists/739654"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "3:53"
+          },
+          {
+            "position": "2-8",
+            "type_": "track",
+            "title": "Black Country Woman",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "4:33"
+          },
+          {
+            "position": "2-9",
+            "type_": "track",
+            "title": "Sick Again",
+            "extraartists": [
+              {
+                "name": "Jimmy Page",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180585,
+                "resource_url": "https://api.discogs.com/artists/180585"
+              },
+              {
+                "name": "Robert Plant",
+                "anv": "",
+                "join": "",
+                "role": "Written-By",
+                "tracks": "",
+                "id": 180586,
+                "resource_url": "https://api.discogs.com/artists/180586"
+              }
+            ],
+            "duration": "4:43"
+          }
+        ],
+        "extraartists": [
+          {
+            "name": "Maurice Tate",
+            "anv": "",
+            "join": "",
+            "role": "Artwork [Tinting Extraordinaire]",
+            "tracks": "",
+            "id": 1834086,
+            "resource_url": "https://api.discogs.com/artists/1834086"
+          },
+          {
+            "name": "AGI (4)",
+            "anv": "",
+            "join": "",
+            "role": "Design, Design Concept [Package Concept & Design]",
+            "tracks": "",
+            "id": 1905531,
+            "resource_url": "https://api.discogs.com/artists/1905531"
+          },
+          {
+            "name": "Mike Doud (2)",
+            "anv": "",
+            "join": "",
+            "role": "Design, Design Concept [Package Concept & Design]",
+            "tracks": "",
+            "id": 1828051,
+            "resource_url": "https://api.discogs.com/artists/1828051"
+          },
+          {
+            "name": "Peter Corriston",
+            "anv": "",
+            "join": "",
+            "role": "Design, Design Concept [Package Concept & Design]",
+            "tracks": "",
+            "id": 1839415,
+            "resource_url": "https://api.discogs.com/artists/1839415"
+          },
+          {
+            "name": "Andy Johns",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "2-2, 2-3, 2-5, 2-7",
+            "id": 249830,
+            "resource_url": "https://api.discogs.com/artists/249830"
+          },
+          {
+            "name": "Eddie Kramer",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "1-2, 1-4, 2-8",
+            "id": 253216,
+            "resource_url": "https://api.discogs.com/artists/253216"
+          },
+          {
+            "name": "George Chkiantz",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "1-4",
+            "id": 289710,
+            "resource_url": "https://api.discogs.com/artists/289710"
+          },
+          {
+            "name": "Keith Harwood",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "1-1, 1-2, 1-5, 1-6, 2-1, 2-4, 2-6, 2-9",
+            "id": 309331,
+            "resource_url": "https://api.discogs.com/artists/309331"
+          },
+          {
+            "name": "Ron Nevison",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "1-1, 1-3, 1-5, 1-6, 2-1, 2-4, 2-6, 2-9",
+            "id": 245560,
+            "resource_url": "https://api.discogs.com/artists/245560"
+          },
+          {
+            "name": "Peter Grant",
+            "anv": "",
+            "join": "",
+            "role": "Executive-Producer",
+            "tracks": "",
+            "id": 259439,
+            "resource_url": "https://api.discogs.com/artists/259439"
+          },
+          {
+            "name": "David Heffernan",
+            "anv": "Dave Heffernan",
+            "join": "",
+            "role": "Illustration",
+            "tracks": "",
+            "id": 1983301,
+            "resource_url": "https://api.discogs.com/artists/1983301"
+          },
+          {
+            "name": "Eddie Kramer",
+            "anv": "",
+            "join": "",
+            "role": "Mixed By",
+            "tracks": "1-4",
+            "id": 253216,
+            "resource_url": "https://api.discogs.com/artists/253216"
+          },
+          {
+            "name": "Keith Harwood",
+            "anv": "",
+            "join": "",
+            "role": "Mixed By",
+            "tracks": "1-1 to 1-3, 1-5, 1-6, 2-1 to 2-9",
+            "id": 309331,
+            "resource_url": "https://api.discogs.com/artists/309331"
+          },
+          {
+            "name": "BP Fallon",
+            "anv": "",
+            "join": "",
+            "role": "Photography By",
+            "tracks": "",
+            "id": 1653255,
+            "resource_url": "https://api.discogs.com/artists/1653255"
+          },
+          {
+            "name": "Elliott Erwitt",
+            "anv": "",
+            "join": "",
+            "role": "Photography By",
+            "tracks": "",
+            "id": 2384324,
+            "resource_url": "https://api.discogs.com/artists/2384324"
+          },
+          {
+            "name": "Roy Harper",
+            "anv": "",
+            "join": "",
+            "role": "Photography By",
+            "tracks": "",
+            "id": 252756,
+            "resource_url": "https://api.discogs.com/artists/252756"
+          },
+          {
+            "name": "Jimmy Page",
+            "anv": "",
+            "join": "",
+            "role": "Producer",
+            "tracks": "",
+            "id": 180585,
+            "resource_url": "https://api.discogs.com/artists/180585"
+          },
+          {
+            "name": "George Marino",
+            "anv": "",
+            "join": "",
+            "role": "Remastered By",
+            "tracks": "",
+            "id": 335003,
+            "resource_url": "https://api.discogs.com/artists/335003"
+          },
+          {
+            "name": "Jimmy Page",
+            "anv": "",
+            "join": "",
+            "role": "Remastered By",
+            "tracks": "",
+            "id": 180585,
+            "resource_url": "https://api.discogs.com/artists/180585"
+          }
+        ],
+        "images": [
+          {
+            "type": "primary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 300,
+            "height": 299
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 587,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 587,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 597
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 597
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 599
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 310,
+            "height": 600
+          }
+        ],
+        "thumb": "[REDACTED image URL]"
+      },
+      "omitted_json_paths": [
+        "/artists/0/thumbnail_url",
+        "/labels/0/thumbnail_url",
+        "/series",
+        "/companies",
+        "/community",
+        "/date_added",
+        "/date_changed",
+        "/num_for_sale",
+        "/lowest_price",
+        "/videos",
+        "/estimated_weight",
+        "/blocked_from_sale",
+        "/is_offensive"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:53+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/releases/1156598",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:53 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "18",
+        "x-discogs-ratelimit-used": "7"
+      },
+      "body_bytes": 22574,
+      "body_sha256": "1043a3c2c09841ba73b8c3d1468cbe9e37a2c5db6f91b5f39f78c5cbfd196cff",
+      "name": "index",
+      "response": {
+        "id": 1156598,
+        "status": "Accepted",
+        "year": 1970,
+        "resource_url": "https://api.discogs.com/releases/1156598",
+        "uri": "https://www.discogs.com/release/1156598-King-Crimson-Lizard",
+        "artists": [
+          {
+            "name": "King Crimson",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 70828,
+            "resource_url": "https://api.discogs.com/artists/70828"
+          }
+        ],
+        "artists_sort": "King Crimson",
+        "labels": [
+          {
+            "name": "Island Records",
+            "catno": "ILPS 9141",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 8377,
+            "resource_url": "https://api.discogs.com/labels/8377"
+          },
+          {
+            "name": "Island Records",
+            "catno": "ILPS-9141",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 8377,
+            "resource_url": "https://api.discogs.com/labels/8377"
+          }
+        ],
+        "formats": [
+          {
+            "name": "Vinyl",
+            "qty": "1",
+            "descriptions": [
+              "LP",
+              "Album",
+              "Stereo"
+            ]
+          }
+        ],
+        "data_quality": "Needs Vote",
+        "format_quantity": 1,
+        "master_id": 498,
+        "master_url": "https://api.discogs.com/masters/498",
+        "title": "Lizard",
+        "country": "UK",
+        "released": "1970-12-11",
+        "notes": "This release has correct top-to-bottom text on spine, compared to [r=9272547], where the text runs from bottom to top.\n\nReleased in a outside laminated gatefold cover. Note, that the front and back of the sleeve are laminated, but the inside is not.\nThis LP has \"Pink Rim/Palm Tree\" labels. \n\nThis first pressing has \"℗ 1970\" on center right of both labels.\n\nThere are two similar but later label variations:\n– \"℗ 1970 Island Records Ltd.\" [url=http://www.discogs.com/release/3846885]on label side A only[/url] and \"℗ 1970\" on label side B;\n– \"℗ 1970 Island Records Ltd.\" [url=http://www.discogs.com/release/5369065]credited on both sides of label[/url].\n\nAs printed on [url=https://www.discogs.com/release/1156598#images/30465769]the Side 2 vinyl label[/url], a duration for Track Bc is given (10:55), but there are no times listed for the sub-tracks within 'The Battle Of Glass Tears'.\n\nAll songs published by E.G. Music\n",
+        "released_formatted": "11 Dec 1970",
+        "identifiers": [
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U",
+            "description": "A-side runout stamp, variant 1"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U",
+            "description": "B-side runout stamp, variant 1"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U MM 2",
+            "description": "A-side runout stamp, variant 3"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U RT 1",
+            "description": "B-side runout stamp, variant 3"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U GL",
+            "description": "A-side runout stamp, variant 5"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U GT",
+            "description": "B-side runout stamp, variant 5"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U GL 2",
+            "description": "A-side runout stamp, variant 6"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U GT 1",
+            "description": "B-side runout stamp, variant 6"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U GH 2",
+            "description": "A-side runout stamp, variant 7"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U OH 2",
+            "description": "B-side runout stamp, variant 7"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 A-2U AO 2",
+            "description": "A-side runout stamp, variant 8"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "ILPS 9141 B-2U GM 1",
+            "description": "B-side runout stamp, variant 8"
+          }
+        ],
+        "genres": [
+          "Rock"
+        ],
+        "styles": [
+          "Prog Rock"
+        ],
+        "tracklist": [
+          {
+            "position": "A1",
+            "type_": "track",
+            "title": "Cirkus (Including: Entry Of The Chameleons)",
+            "duration": "6:28"
+          },
+          {
+            "position": "A2",
+            "type_": "track",
+            "title": "Indoor Games",
+            "duration": "5:38"
+          },
+          {
+            "position": "A3",
+            "type_": "track",
+            "title": "Happy Family",
+            "duration": "4:15"
+          },
+          {
+            "position": "A4",
+            "type_": "track",
+            "title": "Lady Of The Dancing Water",
+            "duration": "2:43"
+          },
+          {
+            "position": "",
+            "type_": "index",
+            "title": "Lizard",
+            "duration": "22:24",
+            "sub_tracks": [
+              {
+                "position": "Ba",
+                "type_": "track",
+                "title": "Prince Rupert Awakes",
+                "duration": "4:34"
+              },
+              {
+                "position": "Bb",
+                "type_": "track",
+                "title": "Bolero - The Peacock's Tale",
+                "duration": "6:30"
+              },
+              {
+                "position": "Bc",
+                "type_": "track",
+                "title": "The Battle Of Glass Tears (Including:)",
+                "duration": "10:55"
+              },
+              {
+                "position": "Bc1",
+                "type_": "track",
+                "title": "Dawn Song",
+                "duration": ""
+              },
+              {
+                "position": "Bc2",
+                "type_": "track",
+                "title": "Last Skirmish",
+                "duration": ""
+              },
+              {
+                "position": "Bc3",
+                "type_": "track",
+                "title": "Prince Rupert's Lament",
+                "duration": ""
+              },
+              {
+                "position": "Bd",
+                "type_": "track",
+                "title": "Big Top",
+                "duration": "1:05"
+              }
+            ]
+          }
+        ],
+        "extraartists": [
+          {
+            "name": "Koraz Wallpapers",
+            "anv": "",
+            "join": "",
+            "role": "Artwork [Inside Marbling]",
+            "tracks": "",
+            "id": 2237747,
+            "resource_url": "https://api.discogs.com/artists/2237747"
+          },
+          {
+            "name": "Gordon Haskell",
+            "anv": "",
+            "join": "",
+            "role": "Bass Guitar, Vocals",
+            "tracks": "",
+            "id": 253141,
+            "resource_url": "https://api.discogs.com/artists/253141"
+          },
+          {
+            "name": "Peter Sinfield",
+            "anv": "",
+            "join": "",
+            "role": "Concept By [Sleeve]",
+            "tracks": "",
+            "id": 253144,
+            "resource_url": "https://api.discogs.com/artists/253144"
+          },
+          {
+            "name": "Mark Charig",
+            "anv": "",
+            "join": "",
+            "role": "Cornet",
+            "tracks": "",
+            "id": 299473,
+            "resource_url": "https://api.discogs.com/artists/299473"
+          },
+          {
+            "name": "Andy McCulloch",
+            "anv": "",
+            "join": "",
+            "role": "Drums",
+            "tracks": "",
+            "id": 253143,
+            "resource_url": "https://api.discogs.com/artists/253143"
+          },
+          {
+            "name": "Robin Thompson",
+            "anv": "",
+            "join": "",
+            "role": "Engineer",
+            "tracks": "",
+            "id": 143949,
+            "resource_url": "https://api.discogs.com/artists/143949"
+          },
+          {
+            "name": "Mel Collins",
+            "anv": "",
+            "join": "",
+            "role": "Flute, Saxophone",
+            "tracks": "",
+            "id": 18160,
+            "resource_url": "https://api.discogs.com/artists/18160"
+          },
+          {
+            "name": "Robert Fripp",
+            "anv": "",
+            "join": "",
+            "role": "Guitar, Mellotron, Keyboards [Electric], Electronics [Devices]",
+            "tracks": "",
+            "id": 10355,
+            "resource_url": "https://api.discogs.com/artists/10355"
+          },
+          {
+            "name": "Robin Miller",
+            "anv": "",
+            "join": "",
+            "role": "Oboe, Cor Anglais",
+            "tracks": "",
+            "id": 253142,
+            "resource_url": "https://api.discogs.com/artists/253142"
+          },
+          {
+            "name": "Gini Barris",
+            "anv": "",
+            "join": "",
+            "role": "Painting [Outside Painting]",
+            "tracks": "",
+            "id": 2237748,
+            "resource_url": "https://api.discogs.com/artists/2237748"
+          },
+          {
+            "name": "Keith Tippett",
+            "anv": "Keith Tippet",
+            "join": "",
+            "role": "Piano, Electric Piano",
+            "tracks": "",
+            "id": 235032,
+            "resource_url": "https://api.discogs.com/artists/235032"
+          },
+          {
+            "name": "Peter Sinfield",
+            "anv": "",
+            "join": "",
+            "role": "Producer",
+            "tracks": "",
+            "id": 253144,
+            "resource_url": "https://api.discogs.com/artists/253144"
+          },
+          {
+            "name": "Robert Fripp",
+            "anv": "",
+            "join": "",
+            "role": "Producer",
+            "tracks": "",
+            "id": 10355,
+            "resource_url": "https://api.discogs.com/artists/10355"
+          },
+          {
+            "name": "Geoff Workman",
+            "anv": "",
+            "join": "",
+            "role": "Technician [Tapes]",
+            "tracks": "",
+            "id": 253053,
+            "resource_url": "https://api.discogs.com/artists/253053"
+          },
+          {
+            "name": "Nick Evans",
+            "anv": "",
+            "join": "",
+            "role": "Trombone",
+            "tracks": "",
+            "id": 252381,
+            "resource_url": "https://api.discogs.com/artists/252381"
+          },
+          {
+            "name": "CCS (2)",
+            "anv": "",
+            "join": "",
+            "role": "Typography",
+            "tracks": "",
+            "id": 1909426,
+            "resource_url": "https://api.discogs.com/artists/1909426"
+          },
+          {
+            "name": "Jon Anderson",
+            "anv": "",
+            "join": "",
+            "role": "Vocals",
+            "tracks": "Ba",
+            "id": 5083,
+            "resource_url": "https://api.discogs.com/artists/5083"
+          },
+          {
+            "name": "Peter Sinfield",
+            "anv": "",
+            "join": "",
+            "role": "Words By",
+            "tracks": "",
+            "id": 253144,
+            "resource_url": "https://api.discogs.com/artists/253144"
+          },
+          {
+            "name": "Peter Sinfield",
+            "anv": "",
+            "join": "",
+            "role": "Written-By",
+            "tracks": "",
+            "id": 253144,
+            "resource_url": "https://api.discogs.com/artists/253144"
+          },
+          {
+            "name": "Robert Fripp",
+            "anv": "",
+            "join": "",
+            "role": "Written-By",
+            "tracks": "",
+            "id": 10355,
+            "resource_url": "https://api.discogs.com/artists/10355"
+          }
+        ],
+        "images": [
+          {
+            "type": "primary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 599
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 437,
+            "height": 436
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 384,
+            "height": 380
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 277
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 277
+          }
+        ],
+        "thumb": "[REDACTED image URL]"
+      },
+      "omitted_json_paths": [
+        "/artists/0/thumbnail_url",
+        "/labels/0/thumbnail_url",
+        "/labels/1/thumbnail_url",
+        "/series",
+        "/companies",
+        "/community",
+        "/date_added",
+        "/date_changed",
+        "/num_for_sale",
+        "/lowest_price",
+        "/videos",
+        "/estimated_weight",
+        "/blocked_from_sale",
+        "/is_offensive"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:56+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/releases/6061",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:56 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "17",
+        "x-discogs-ratelimit-used": "8"
+      },
+      "body_bytes": 15383,
+      "body_sha256": "5dbaa3b57bc88e0a3a1ec8d1ed976594f76be2cf5e7bc19817489d9ad7cf3893",
+      "name": "heading",
+      "response": {
+        "id": 6061,
+        "status": "Accepted",
+        "year": 1993,
+        "resource_url": "https://api.discogs.com/releases/6061",
+        "uri": "https://www.discogs.com/release/6061-Drexciya-Drexciya-2-Bubble-Metropolis",
+        "artists": [
+          {
+            "name": "Drexciya",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 1172,
+            "resource_url": "https://api.discogs.com/artists/1172"
+          }
+        ],
+        "artists_sort": "Drexciya",
+        "labels": [
+          {
+            "name": "Underground Resistance",
+            "catno": "UR-026",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 258,
+            "resource_url": "https://api.discogs.com/labels/258"
+          }
+        ],
+        "formats": [
+          {
+            "name": "Vinyl",
+            "qty": "1",
+            "descriptions": [
+              "12\"",
+              "33 ⅓ RPM"
+            ]
+          }
+        ],
+        "data_quality": "Needs Vote",
+        "format_quantity": 1,
+        "master_id": 588,
+        "master_url": "https://api.discogs.com/masters/588",
+        "title": "Drexciya 2 - Bubble Metropolis",
+        "country": "US",
+        "released": "1993",
+        "notes": "This version has a large ring.\nTracks made in Drexciya for UR in Detroit\nSpecial thanks to GOD\nMAD MIKE & HYPERSPACE Publishing\n\nFirst pressing was released in a blue sleeve with an A4 sheet of information about Submerge's first Mail Order Outlet.\n\nThe tracks are sequentially listed over both sides the release (i.e. A1, A2, A3, B4, B5, B6).\n\nBPMs (not given on release):\nA1: 141 | A2: 144 | A3: 144\nB4: 129 | B5: 116  | B6: 150",
+        "released_formatted": "1993",
+        "identifiers": [
+          {
+            "type": "Matrix / Runout",
+            "value": "UR 026-A NSC",
+            "description": "Etched in runout, Side A"
+          },
+          {
+            "type": "Matrix / Runout",
+            "value": "UR 026-B NSC",
+            "description": "Etched in runout, Side B"
+          }
+        ],
+        "genres": [
+          "Electronic"
+        ],
+        "styles": [
+          "Electro"
+        ],
+        "tracklist": [
+          {
+            "position": "",
+            "type_": "heading",
+            "title": "Fresh Water",
+            "duration": ""
+          },
+          {
+            "position": "A1",
+            "type_": "track",
+            "title": "Aqua Worm Hole",
+            "duration": "5:25"
+          },
+          {
+            "position": "A2",
+            "type_": "track",
+            "title": "Positron Island",
+            "duration": "4:05"
+          },
+          {
+            "position": "A3",
+            "type_": "track",
+            "title": "Beyond The Abyss",
+            "duration": "2:17"
+          },
+          {
+            "position": "",
+            "type_": "heading",
+            "title": "Salt Water",
+            "duration": ""
+          },
+          {
+            "position": "B4",
+            "type_": "track",
+            "title": "Bubble Metropolis",
+            "duration": "6:00"
+          },
+          {
+            "position": "B5",
+            "type_": "track",
+            "title": "Danger Bay",
+            "duration": "3:20"
+          },
+          {
+            "position": "B6",
+            "type_": "track",
+            "title": "Welcome To Drexciya",
+            "duration": "2:09"
+          }
+        ],
+        "extraartists": [
+          {
+            "name": "Underground Resistance",
+            "anv": "UR",
+            "join": "",
+            "role": "Presenter",
+            "tracks": "",
+            "id": 1160,
+            "resource_url": "https://api.discogs.com/artists/1160"
+          },
+          {
+            "name": "Drexciya",
+            "anv": "",
+            "join": "",
+            "role": "Producer [Filtered By]",
+            "tracks": "",
+            "id": 1172,
+            "resource_url": "https://api.discogs.com/artists/1172"
+          }
+        ],
+        "images": [
+          {
+            "type": "primary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 594
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 587
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 600,
+            "height": 600
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "secondary",
+            "uri": "[REDACTED image URL]",
+            "resource_url": "[REDACTED image URL]",
+            "uri150": "[REDACTED image URL]",
+            "width": 300,
+            "height": 300
+          }
+        ],
+        "thumb": "[REDACTED image URL]"
+      },
+      "omitted_json_paths": [
+        "/artists/0/thumbnail_url",
+        "/labels/0/thumbnail_url",
+        "/series",
+        "/companies",
+        "/community",
+        "/date_added",
+        "/date_changed",
+        "/num_for_sale",
+        "/lowest_price",
+        "/videos",
+        "/estimated_weight",
+        "/blocked_from_sale",
+        "/is_offensive"
+      ]
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:59+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://api.discogs.com/releases/0",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)",
+          "Accept": "application/vnd.discogs.v2.discogs+json"
+        }
+      },
+      "status": 404,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:59 GMT",
+        "content-type": "application/json",
+        "x-discogs-ratelimit": "25",
+        "x-discogs-ratelimit-remaining": "16",
+        "x-discogs-ratelimit-used": "9"
+      },
+      "body_bytes": 67,
+      "body_sha256": "67b156cff25843afa520efc44a6335442d83061ce55330a4e358c364fa191ede",
+      "name": "missing_release",
+      "response": {
+        "message": "That release does not exist or may have been deleted."
+      },
+      "omitted_json_paths": []
+    }
+  ],
+  "sources": [
+    {
+      "observed_at_utc": "2026-11-05T18:39:24+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360009334593.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:24 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"7e7f2acb7706807dedd183d3f5f7c6d6\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 25152,
+      "body_sha256": "7e7f2acb7706807dedd183d3f5f7c6d6fb8c93fa3c7aaf5e163b91793db347b3",
+      "name": "api_terms",
+      "title": "API Terms of Use",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360009334593-API-Terms-of-Use",
+      "updated_at": "2025-07-23T14:54:18Z",
+      "edited_at": "2025-05-28T08:40:32Z",
+      "excerpts": [
+        "Last Updated: May 27th, 2025",
+        "These Terms of Use (“TOU”) govern your (“You” or “Your”) use of Zink Media, LLC (d/b/a Discogs) and our affiliates (“We”, “Our”, “Us” or “Discogs”) Application Program Interface (Our “API\") and data made available through Our API (the “Content”). The TOU comprises the entire agreement between You and Us regarding the TOU and supersedes all prior agreements between You and Us regarding the TOU. The TOU applies to any API and Content made available by Us. BY ACCESSING OUR API AND THE CONTENT, YOU ARE INDICATING YOUR AGREEMENT TO BE BOUND BY THE TOU.",
+        "CC0 Data: The Content includes the following JSON- and XML-formatted, CC0 data (the “CC0 Data”):",
+        "Release titles, notes, dates, format, track listings, barcodes and other identifiers, credits, versions, URL links to third-party sites",
+        "Artist names, notes, associated releases",
+        "Label, producer, manufacturer, distributor, etc. names and contact information, notes, and associated releases",
+        "Restricted Data: Our API provides access to the following restricted use Content (data that is not CC0) (the “Restricted Data”).",
+        "“Images” - Images posted by users to Our online properties must comply with our Database Guidelines 13. Images and meet the following requirements:",
+        "Image is Public Domain (expired copyright or public from inception), or;",
+        "The user owns the rights to the image and agrees to make it available via a CC0 \"No Rights Reserved\" license, or;",
+        "Image is already made available through a CC0 \"No Rights Reserved\" license, or;",
+        "Fair Use – any image representing a physical or digital product in the Discogs catalogue for the purpose of critical commentary or for the purpose of reselling the work under the First Sale Doctrine.",
+        "Circumvent any security features or technical limitations of Our API.",
+        "Attempt to or actually circumvent Our rate limits, such as by creating additional API keys to overcome these limits.",
+        "Commercial use of Our API and the Content is generally permitted, but may not be permitted, if, in Our sole discretion we determine the commercial use is prohibited. Prohibited commercial uses include, but are not limited to:",
+        "Selling or giving to any third party Our API, the Content, or access to Our API or the Content.",
+        "CC0 Data: CC0 Data is made available under the CC0 No Rights Reserved license.",
+        "Restricted Data: Restricted Data is subject to the following use rules and restrictions:",
+        "Discogs grants You a limited, personal, non-sublicensable, non-transferable, non-exclusive, revocable license to access and use the Restricted Data Content and Our API to create and run websites and applications.",
+        "You may also be subject to Our policies posted to Our online properties and applications, which terms shall take precedence over these TOU terms if those terms are more restrictive.",
+        "Transfer Restricted Data to any third party.",
+        "Use Restricted Data for any commercial purposes.",
+        "The Content within Our API is dynamic and is quickly outdated. You may not display in any format or to any audience the Content if it is more than six (6) hours older than the information on Our online properties or applications and applications. You may not cache or store the Content longer than is necessary to provide a service to Your application’s users.",
+        "We require You to display the following notice prominently on Your application and any other public-facing use of Our API and the Content that You create: \"This application uses Discogs’ API but is not affiliated with, sponsored or endorsed by Discogs. ‘Discogs’ is a trademark of Zink Media, LLC.\" This notice may be included in Your terms and conditions or usage documentation.",
+        "In addition, You must display the following notice directly next to any data You use from the Discogs API: “Data provided by Discogs.” The notice must include a hyperlink to the discogs.com page that includes the data. The link back must not use any mechanism that prevents passing along search engine ranking credit to that page, such as 'nofollow'.",
+        "For the avoidance of doubt, when You use Our API or the Content for any reason, You (and Your successors in interest) acknowledge Our API and the Content is offered with no warranty of non-infringement. You specifically agree not to sue Us or Our users on intellectual property claims related to Your use, or related to any technologies We own that make Your application possible. Specifically, You will not bring any intellectual property infringement claim, nor assist any third party in doing so, against us or Our users, related to Your use of, and access to, Our API (including how Your application interacts with Us, Our API, online properties and applications) or the Content."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:24+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360009334333.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:24 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"95549f1db4d27f855b47c794c2346dc1\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 52766,
+      "body_sha256": "95549f1db4d27f855b47c794c2346dc12a94ef7d052f317be9a23862cb6ab1a6",
+      "name": "terms_of_service",
+      "title": "Terms of Service",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360009334333-Terms-of-Service",
+      "updated_at": "2026-02-23T11:12:06Z",
+      "edited_at": "2026-02-23T11:10:11Z",
+      "excerpts": [
+        "Last updated: February 23rd, 2026",
+        "We grant You a limited license to access and make personal use of the Service and not to download (other than page caching) or modify it, or any portion of it, except with Our express written consent. Except where We provide You with express written consent, this license does not include any resale or commercial use of the Service, including its contents; any reuse of the Service contents (including database information) for cross-listing items on third-party marketplaces or other non-personal use or commercial purposes on third party marketplace or database platforms; any collection and use of any product listings, descriptions, or prices; any derivative use of the Service, including its contents; any downloading or copying of account information for the benefit of another merchant; or any use of data mining, robots, scraping, harvesting, or similar data gathering and extraction tools. The Service, including the content therein, may not be reproduced, duplicated, copied, sold, resold, visited, or otherwise exploited for any commercial purpose without Our express written consent.",
+        "We strictly prohibit (1) the development of any software program, including, but not limited to, training a machine learning or artificial intelligence (AI) system using the Service content and (2) providing archived or cached data sets containing any Service content to another person or entity. Violation of the TOS may result in legal action by Us against You, including but not limited to claims for damages, injunctive relief, and legal costs.",
+        "As part of the Service, You may post, upload, input, transmit, send, submit, or otherwise contribute (collectively, “Contribute”) to the Service certain images, item information, personal information, and other content (“User Content”). User Content promotes the growth of information (i.e., music, literary, etc.) and relates to the sale of items through Our Marketplace, pursuant to Our mission. Some User Content may be in the public domain (i.e., expired copyright or public from inception) or otherwise available through a CC0 Creative Commons “No Copyright Reserved” license, and Your Contribution of some User Content also may constitute fair use. If You have any questions about the public domain, license, or fair use status of content, please consult with a qualified legal expert before contributing that content.",
+        "Content made available via our Data Dump is subject to the license found on the Data Dump landing page. We also make available to third parties via Application Program Interfaces (“APIs”) certain data relating to the Service, including User Content (collectively, “Service Data”). Use of Service Data obtained via APIs is generally subject to Our API Terms of Use. We may enter into separate API agreements with selected business partners (“Preferred API Partners”), governing their use of Service Data and will disclose those partners to You at that time. We neither endorse nor control the services offered by Our Preferred API Partners, but We believe their services are complementary to Your use of the Service. You acknowledge that pursuant to the license set forth above, Discogs may share User Content with third parties via APIs, including but not limited to the Preferred API Partners. Your access to and use of any content and services provided by third parties through the APIs is governed by the Third-Party Terms, below."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:25+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360005006874.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:25 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"0bec91f6f5efbcb9c47b36c40f765d44\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 24599,
+      "body_sha256": "0bec91f6f5efbcb9c47b36c40f765d44acd9af4581bb3782ca51c64b726930d6",
+      "name": "image_guidelines",
+      "title": "Database Guidelines 13. Images",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360005006874-Database-Guidelines-13-Images",
+      "updated_at": "2026-04-10T14:25:37Z",
+      "edited_at": "2026-04-10T14:25:37Z",
+      "excerpts": [
+        "By uploading images to Discogs you agree that the image meets one of the following requirements:",
+        "Image is Public Domain (expired copyright or public from inception); or",
+        "You own the rights to the image and agree to make it available via a CC0 \"No Rights Reserved\" license; or",
+        "Image is already made available through a CC0 \"No Rights Reserved\" license; or",
+        "Fair Use – any image representing a physical or digital product in the Discogs Database for the purpose of critical commentary or for the purpose of reselling a physical product under the First Sale Doctrine.",
+        "13.1.4. Images should be good quality, face-on, readable, correctly oriented and must be free of any copyright, watermark, URL or other marks. Images should be static, no animated GIFs please. They must be of the exact release they are attached to, please make sure of this by checking the catalog numbers, matrix numbers and other identifiers. Do not add images of releases with different catalog numbers, labels, etc. You must have the exact release in your possession when you submit an image. Images of physical items must be taken by you and cannot be sourced from other websites or third party sources.",
+        "13.1.8. Do not download an image from Discogs and then re-upload it (with or without editing), as this causes quality loss. Exceptions to this guideline can be made when pages are merged.",
+        "13.8.1 The primary image, i.e. the one displayed as thumbnail on the Release page, should always be the image that best represents the release. This will usually be the front cover, or for releases with no cover artwork, the center label with the most information."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:25+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360007423833.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:25 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"def13a673770fc1bb250349bb3a28ab2\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 3988,
+      "body_sha256": "def13a673770fc1bb250349bb3a28ab21efca7249680cb03dd3a761d71691d1b",
+      "name": "account_settings",
+      "title": "How Do I Change My Account Settings?",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360007423833-How-Do-I-Change-My-Account-Settings",
+      "updated_at": "2025-07-23T14:54:11Z",
+      "edited_at": "2025-07-07T13:22:42Z",
+      "excerpts": [
+        "Applications - Allow applications to access your Discogs profile information.",
+        "Developers - You can register your application here if you wish to access user data. Create an API token."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:26+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360009207054.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:26 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"16a1a99e39e210007de6f89f8ceb5aa7\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 4907,
+      "body_sha256": "16a1a99e39e210007de6f89f8ceb5aa71c4544be27506a2724af8b3bb8fab142",
+      "name": "application_name",
+      "title": "Application Name and Description Policy",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360009207054-Application-Name-and-Description-Policy",
+      "updated_at": "2024-03-20T14:51:19Z",
+      "edited_at": "2023-07-10T15:25:12Z",
+      "excerpts": [
+        "Effective Date: December 11, 2019",
+        "Zink Media, LLC (d/b/a Discogs) and our affiliates (“We”, “Our” or “Us”) is dedicated to our community and open source, and data is made available pursuant to Our API Terms of Use. In addition, there are certain restrictions in how applications can use Our registered trademark, ”Discogs.” Discogs should only be used in accordance with the relevant trademark laws and Our Discogs Brand Guidelines. We do not allow the use of Our other marks which include, but are not limited to, “NearMint,” “Crate Diggers,” “Bookogs,” “Comicogs,” “Filmogs,” “Gearogs,” “Posterogs,” and “VinylHub.” You may accurately indicate that Your application is integrated with Our websites, application, API, and other services we may develop (collectively, the “Service”). However, you may not use Our Discogs mark in your name in an unauthorized way that implies partnership, sponsorship, or endorsement by Us without Our written consent.",
+        "Don’t use Our Discogs mark in a way that implies partnership, sponsorship, or endorsement by us, such as:"
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:26+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360005055493.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:26 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"fe7748d0bb9e679c1379c10076b65047\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 12751,
+      "body_sha256": "fe7748d0bb9e679c1379c10076b6504780b4a5f67c1301e14c50f88c05404d8e",
+      "name": "master_guidelines",
+      "title": "Database Guidelines 16. Master Release",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360005055493-Database-Guidelines-16-Master-Release",
+      "updated_at": "2026-03-31T14:48:55Z",
+      "edited_at": "2025-10-06T15:20:13Z",
+      "excerpts": [
+        "16.1. Master Release Introduction",
+        "16.2.1. Guidelines For Master Releases",
+        "16.3. Viewing Master Releases",
+        "16.4. Creating A Master Release",
+        "16.5.1. Editing A Master Release",
+        "16.6.1. Advanced Methods For Creating And Editing A Master Release",
+        "16.7. Deleting A Master Release",
+        "Master Release Introduction",
+        "16.1. Master release is a display function that gathers two or more matching releases together. It can be thought of as a folder that holds two or more Discogs releases. An example would be gathering several versions of an album, such as Michael Jackson - Off The Wall. Master release does not change the data of the contained releases.",
+        "Guidelines For Master Releases",
+        "16.2.1. Releases that match two or more of the following will probably be eligible to belong to the same Master release:",
+        "Has the same tracklisting (the same recordings or versions, not totally different recordings);",
+        "Album - For example, CD, Vinyl or Cassette version of the same album. Samplers should normally not be put in the same Master release as the full album.",
+        "Single including Maxi Single - All versions should be bundled in the Master release, including Maxi and Remix versions. For example, Madonna's \"Deeper And Deeper\" Master release includes all versions, including the double 12\" remix promo version.",
+        "Releases without any of the above format types can be put in with any other of the above format types, or in its own Master release.",
+        "16.2.2. Master release is intended to contain as many releases as reasonable. For example, the tracklisting can vary (sometimes radically), but there should be an obvious connection between the releases. Releases shouldn't be forced into a Master release: If the addition of a release to a MR is contentious, confusing or difficult, then it should probably not be part of the Master release in question.",
+        "16.2.3. A release can only belong to one Master release. If a release partially belongs to two or more Master releases, it should not be added to them. For example:",
+        "Releases that combine two albums can't be on the same Master release as the individual albums.",
+        "Versions of singles billed as double A sides, where one of the tracks is different, can't be on the same Master release. For example Laid Back - White Horse / So Wie So can't be on the same Master release as Laid Back - White Horse / Sunshine Reggae.",
+        "Viewing Master Releases",
+        "16.3. There are two ways that Master releases can be viewed:",
+        "A Master release can be seen on Artist and Label pages as the release title, followed by an arrow and the number of versions in gray:",
+        "On the Artist page, the display gathers the releases in a particular section of an Artist page (for example, Remixes), that are also in the same Master release.",
+        "On the Label page, Master release is only used to gather together releases that have the same catalog number. For example, two releases with the catalog number ABC-001 that are in a Master release will be gathered together on the Label page. However, if there is a third release in the Master release with the catalog number ABC-001P, that one will not be gathered with the other releases on the Label page view.",
+        "Clicking the arrow or gray '... versions' text will expand the list on the page, so you can see the items that are in that Master release under that section:",
+        "Clicking the title will take you to the second way a Master Release can be viewed, the Master release page itself:",
+        "The Master release page lists all the releases contained in that Master release, together with things like the artist and release title, an image, tracks, date, genre, etc. There is a link to the Master release on each individual release that is part of it. You can also find Master releases in the search results by selecting the \"Master\" tab.",
+        "Creating A Master Release",
+        "16.4. To create a new Master release, click Create Master Release on the right hand side Artist page menu. You can't create Master releases on Label pages.",
+        "Select each release you want to add to the Master release and they will appear in the \"Contained Releases\" panel at the bottom. The key release can be selected on the top panel and will be highlighted in green. This release is the one which we take the release title and image from for the Master release display.",
+        "Try to select the Key release that best represents the title and image for all the releases in the Master release, with the title taking priority. The tracklisting will also be taken from this release for display on the Master release page - this is only a temporary measure until we code in the extraction of all track titles on all versions of the release, so please don't place very much importance on this at the moment.",
+        "After the list of releases is completed to your satisfaction, click 'View Changes' and add a Submission Note if needed (this is NOT required for Master release, but please use it if you want to mention anything to other users). Then click \"Submit\". The system will run some error check on the format descriptions, and if all is well, reload the page with the Master release there.",
+        "Editing A Master Release",
+        "16.5.1. To edit a Master release: From the Artist page, click on the triangle that appears on the right hand side of the release list when you mouseover the Master release, then select Edit Master Release:",
+        "The panel will open at the bottom of the page with the MR data populated there. You can now add or remove releases from the Master release or change the Key release. Click save to complete the edit.",
+        "Advanced Methods For Creating And Editing A Master Release",
+        "16.6.1. For advanced users, you can create a Master release at http://www.discogs.com/master/create and edit a Master release at http://www.discogs.com/master/edit/{master release number}. This allows you to enter and manipulate release numbers directly and edit the notes.",
+        "16.6.2. To create a Master release for releases that have a placeholder Main Artist (for example, 'Various'), you can create the MR via the Artist page of any artist involved in the release, or alternatively you can use the advanced form described above.",
+        "Deleting A Master Release",
+        "16.7. To delete a Master release, use the \"Edit Master Release\" link on the Master release page and remove all of the release IDs from the releases and Key release fields. At preview, it will detect you are doing a delete and the preview will warn you. Submit to continue with removing it."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:26+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://support.discogs.com/api/v2/help_center/en-us/articles/360005055373.json",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:26 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"0273a0916bb96a3b30a36d4e38f3625d\"",
+        "cache-control": "max-age=0, private, must-revalidate"
+      },
+      "body_bytes": 28805,
+      "body_sha256": "0273a0916bb96a3b30a36d4e38f3625d3391a9747b24cfc8c28afde43af5b7bc",
+      "name": "tracklist_guidelines",
+      "title": "Database Guidelines 12. Tracklisting",
+      "html_url": "https://support.discogs.com/hc/en-us/articles/360005055373-Database-Guidelines-12-Tracklisting",
+      "updated_at": "2026-04-10T14:15:13Z",
+      "edited_at": "2026-04-10T14:15:13Z",
+      "excerpts": [
+        "12.6.1. Durations",
+        "12.13.1. Index Tracks And Headings",
+        "Multiple CDs, etc.: 1-1, 1-2…, 2-1, 2-2…",
+        "Multi-disc or multi-format releases: Use a clear and simple position numbering scheme which differentiates each item, for example, CD1-1, DVD1-1, etc.",
+        "Durations",
+        "12.6.1. Legitimate formats for duration are:",
+        "12.6.2. Please enter durations in the format they appear on the release, or if they aren't on the release, in the most convenient format. The format should not be changed without good reason. Tip: When entering durations, a period (.) can be used in lieu of a colon (:).",
+        "12.6.3. If durations are entered from the release text, they should be entered for all the tracks, unless the release doesn't list the durations for all the tracks. In this case please enter the track durations that are listed on the release, and explain the discrepancy in the Release Notes.",
+        "12.6.4. If the durations are not listed on the release, they can be found and entered by timing the vinyl, listing the CD times from a CD player or computer, etc. The timings must be taken from the exact release - please do not transfer timings between releases. Please mention in the Submission Notes where the durations were derived from. ‘Track durations are not printed on the release’ may additionally be used in the Release Notes.",
+        "12.6.5. When the printed durations do not match the actual durations and the difference is more than ±5 seconds, enter the actual durations and list the printed durations in the Release Notes. When the difference is less than ±5 seconds, enter the printed durations.",
+        "Index Tracks And Headings",
+        "12.13.1. Index Tracks are used whenever the Index Track Title is the title of a musical piece and the Sub-tracks below are parts or movements of that piece. The Index track title must be a valid name for the musical work when presented as \"Index Track (Sub-Track)\". If it isn't, a heading must be used instead.",
+        "Examples would be Joseph Haydn - Orchestre Des Concerts Lamoureux Directed By Rudolf Albert - Symphonie No 88 En Sol Majeur Symphonie No 73 En Ré Majeur \"La Chasse\" and King Crimson - Lizard. The Index Track should always refer to a group of audio tracks directly below. Every Index Track must have at least one (and usually two or more) Sub-Tracks below it.",
+        "12.13.2. Use a \"Heading\" whenever there is a block of text on the release that is descriptive of the tracks below, but is not the title of a musical piece.",
+        "Examples would be Drexciya - Drexciya 2 - Bubble Metropolis and Grant Calvin Weston* With James Blood Ulmer And Jamaaladeen Tacuma - Dance Romance. To separate subsequent tracks which are not part of the Heading, add a blank Heading containing a single dash (-) after the last track in the group.",
+        "12.13.3. When bonus tracks / bonus content is identified on the release itself as a separate section of the release content, a Heading can be used. However, when bonus tracks are identified with an asterisk, with a bonus track mention appended to the track title, a footnote or such like, do not use a Heading, enter this in the Release Notes instead.",
+        "12.13.4. Index Tracks and Headings should not be used for denoting generic side, track position or separate media data (for example, 'Side A', 'CD1', etc.), track numbering is used for this.",
+        "12.13.5. Index Tracks and Headings should not be used for adding incidental information which belongs in the Release Notes.",
+        "12.17.1. Blank space on a release that is given its own CD index or otherwise marked out from the other tracks, but which isn't given a title, can be entered in the tracklist using the usual track numbering schemes, and titled as \"(no audio)\"."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:26+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://www.discogs.com/developers/",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 403,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:26 GMT",
+        "content-type": "text/html; charset=UTF-8",
+        "content-length": "5683"
+      },
+      "body_bytes": 5683,
+      "body_sha256": "8228d4d09bc1ce7428f896d00024676127d945270cd933f97429174b0d4c1ab1",
+      "name": "developers"
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:27+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://data.discogs.com/",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:27 GMT",
+        "content-type": "text/html",
+        "cache-control": "public, max-age=3600"
+      },
+      "body_bytes": 3779,
+      "body_sha256": "7874bf1b34ba2d75283a2c2211c07b3c2ad47c5ae1f873ab32505b3d9025dc80",
+      "name": "data_dump",
+      "excerpts": [
+        "Download Discogs Data Here you will find monthly dumps of Discogs Release, Artist, Label, and Master Release data. The data is in XML format and formatted according to the API spec: http://www.discogs.com/developers/ This data is made available under the CC0 No Rights Reserved license: http://creativecommons.org/about/cc0"
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:27+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/discogs/discogs_client/c159195a43ceb3def5a9be2acce43bbad71a2e32/README.mkd",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "5717",
+        "cache-control": "max-age=300",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "\"2dc08e7562578cf886e7baacad93ba92598c2fa034a953ad1f9f25f550d938d3\"",
+        "date": "Thu, 05 Nov 2026 18:39:27 GMT"
+      },
+      "body_bytes": 5717,
+      "body_sha256": "d2c513ba0b98a0d342a1b01d3467420d66919cbf7e41cab2b3d0fc0155fe4e0d",
+      "name": "client_readme",
+      "excerpts": [
+        "# :warning: DEPRECATED",
+        "This repository is no longer maintained. You can still use a REST client like",
+        "This is the official Discogs API client for Python. It enables you to query the Discogs database for information on artists, releases, labels, users, Marketplace listings, and more. It also supports OAuth 1.0a authorization, which allows you to change user data such as profile information, collections and wantlists, inventory, and orders.",
+        "Then go through the OAuth 1.0a process. In a web app, we'd specify a `callback_url`. In this example, we'll use the OOB flow.",
+        "#### User-token authentication ####",
+        "This is one of the simplest ways to authenticate and become able to perform requests requiring authentication, such as search (see below). The downside is that you'll be limited to the information only your user account can see (i.e., no requests on behalf of other users).",
+        "For this, you'll need to generate a user-token from your developer settings on the Discogs website."
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:27+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/discogs/discogs_client/c159195a43ceb3def5a9be2acce43bbad71a2e32/docs/authentication.md",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "3287",
+        "cache-control": "max-age=300",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "\"367f61e9267645a30bda2a44aec72f8ac10e9ec70d65f1d06fa59c8c80623bca\"",
+        "date": "Thu, 05 Nov 2026 18:39:27 GMT"
+      },
+      "body_bytes": 3287,
+      "body_sha256": "7ebb66ef24ce6568656a4ad8577a56788df7e4b39fd25de3e8fee25f36d637e8",
+      "name": "client_auth",
+      "excerpts": [
+        "only represent a single user (e.g., writing a store-front for your Discogs",
+        "This is the more simple of the two methods of authenticating. Assuming you have generated a Discogs User Token in your Discogs developer settings, you can simply supply your token to the `Client` class:",
+        "A Discogs consumer key and consumer secret are required for OAuth, and we can supply these credentials in two ways:",
+        "1. Instantiating the `Client` class with the consumer key and secret:",
+        "* Get authorization URL",
+        "    This will return a tuple with the request token, request secret, and the authorization URL that your user needs to visit to accept your app's request to sign in on their behalf.",
+        "    Pass the OAuth verifier that you received after the user authorizes your app into this method. This will return a tuple with the access token and access token secret that finalizes the OAuth process.",
+        "    d.get_access_token('verifier-here')"
+      ],
+      "unmatched_excerpt_queries": []
+    },
+    {
+      "observed_at_utc": "2026-11-05T18:39:27+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode.en",
+        "headers": {
+          "User-Agent": "ParabolicaDiscogsAccessResearch/0.1 (+https://github.com/anasalqoyyum/parabolica)"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "date": "Thu, 05 Nov 2026 18:39:27 GMT",
+        "content-type": "text/html",
+        "age": "2469"
+      },
+      "body_bytes": 32223,
+      "body_sha256": "b43732f4c1463b087cf10d4daf8d8766514b2bf8f21bc5ef50905f95be227726",
+      "name": "cc0_legalcode",
+      "excerpts": [
+        "Creative Commons public licenses provide a standard set of terms and conditions that creators and other rights holders may use to share original works of authorship and other material subject to copyright and certain other rights specified in the public license below. The following considerations are for informational purposes only, are not exhaustive, and do not form part of our licenses.",
+        "Our public licenses are intended for use by those authorized to give the public permission to use material in ways otherwise restricted by copyright and certain other rights. Our licenses are irrevocable. Licensors should read and understand the terms and conditions of the license they choose before applying it. Licensors should also secure all rights necessary before applying our licenses so that the public can reuse the material as expected. Licensors should clearly mark any material not subject to the license. This includes other CC-licensed material, or material used under an exception or limitation to copyright. More considerations for licensors.",
+        "By using one of our public licenses, a licensor grants the public permission to use the licensed material under specified terms and conditions. If the licensor’s permission is not necessary for any reason–for example, because of any applicable exception or limitation to copyright–then that use is not regulated by the license. Our licenses grant only permissions under copyright and certain other rights that a licensor has authority to grant. Use of the licensed material may still be restricted for other reasons, including because others have copyright or other rights in the material. A licensor may make special requests, such as asking that all changes be marked or described. Although not required by our licenses, you are encouraged to respect those requests where reasonable. More considerations for the public.",
+        "To the greatest extent permitted by, but not in contravention of, applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and unconditionally waives, abandons, and surrenders all of Affirmer's Copyright and Related Rights and associated claims and causes of action, whether now known or unknown (including existing as well as future claims and causes of action), in the Work (i) in all territories worldwide, (ii) for the maximum duration provided by applicable law or treaty (including future time extensions), (iii) in any current or future medium and for any number of copies, and (iv) for any purpose whatsoever, including without limitation commercial, advertising or promotional purposes (the \"Waiver\"). Affirmer makes the Waiver for the benefit of each member of the public at large and to the detriment of Affirmer's heirs and successors, fully intending that such Waiver shall not be subject to revocation, rescission, cancellation, termination, or any other legal or equitable action to disrupt the quiet enjoyment of the Work by the public as contemplated by Affirmer's express Statement of Purpose.",
+        "Should any part of the Waiver for any reason be judged legally invalid or ineffective under applicable law, then the Waiver shall be preserved to the maximum extent permitted taking into account Affirmer's express Statement of Purpose. In addition, to the extent the Waiver is so judged Affirmer hereby grants to each affected person a royalty-free, non transferable, non sublicensable, non exclusive, irrevocable and unconditional license to exercise Affirmer's Copyright and Related Rights in the Work (i) in all territories worldwide, (ii) for the maximum duration provided by applicable law or treaty (including future time extensions), (iii) in any current or future medium and for any number of copies, and (iv) for any purpose whatsoever, including without limitation commercial, advertising or promotional purposes (the \"License\"). The License shall be deemed effective as of the date CC0 was applied by Affirmer to the Work. Should any part of the License for any reason be judged legally invalid or ineffective under applicable law, such partial invalidity or ineffectiveness shall not invalidate the remainder of the License, and in such case Affirmer hereby affirms that he or she will not (i) exercise any of his or her remaining Copyright and Related Rights in the Work or (ii) assert any associated claims and causes of action with respect to the Work, in either case contrary to Affirmer's express Statement of Purpose.",
+        "No trademark or patent rights held by Affirmer are waived, abandoned, surrendered, licensed or otherwise affected by this document.",
+        "Affirmer disclaims responsibility for clearing rights of other persons that may apply to the Work or any use thereof, including without limitation any person's Copyright and Related Rights in the Work. Further, Affirmer disclaims responsibility for obtaining any necessary consents, permissions or other rights required for any use of the Work."
+      ],
+      "unmatched_excerpt_queries": []
+    }
+  ],
+  "capture_complete": true,
+  "finished_at_utc": "2026-11-05T18:40:02+00:00"
+}
