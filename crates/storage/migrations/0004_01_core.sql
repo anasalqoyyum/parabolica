@@ -47,9 +47,12 @@ CREATE TABLE virtual_tracks (
     number INTEGER NOT NULL CHECK (number BETWEEN 1 AND 99),
     start_frame INTEGER NOT NULL CHECK (start_frame >= 0),
     end_frame INTEGER NOT NULL CHECK (end_frame > start_frame),
-    index_01_frame INTEGER NOT NULL CHECK (index_01_frame >= start_frame AND index_01_frame < end_frame),
-    UNIQUE (image_file_id, number)
+    index_01_frame INTEGER NOT NULL CHECK (index_01_frame >= start_frame AND index_01_frame < end_frame)
 ) STRICT;
+
+-- Not unique: replacing an image's tracks can renumber retained rows one at a time. The storage
+-- crate rejects a replacement set with repeated numbers.
+CREATE INDEX virtual_tracks_by_image ON virtual_tracks (image_file_id, number);
 
 CREATE TABLE provider_items (
     provider TEXT NOT NULL CHECK (provider <> ''),
@@ -76,7 +79,11 @@ CREATE TABLE track_sources (
     evidence TEXT,
     linked_at_ms INTEGER NOT NULL,
     source_key TEXT NOT NULL GENERATED ALWAYS AS (
-        source_kind || ':' || coalesce(hex(file_id), hex(virtual_track_id), provider || ':' || provider_item_id)
+        source_kind || ':' || CASE source_kind
+            WHEN 'file' THEN hex(file_id)
+            WHEN 'cue' THEN hex(virtual_track_id)
+            ELSE provider || ':' || provider_item_id
+        END
     ) VIRTUAL,
     FOREIGN KEY (provider, provider_item_id) REFERENCES provider_items (provider, item_id) ON DELETE CASCADE,
     CHECK (
@@ -156,14 +163,16 @@ CREATE TABLE job_items (
 ) STRICT, WITHOUT ROWID;
 
 -- Library search over display tags. The trigram tokenizer matches substrings in any script,
--- including CJK text without word breaks. Rows are keyed by media_files.seq and maintained by the
--- storage crate in the same transaction as the tags.
+-- including CJK text without word breaks. `folded` holds the same text lower-cased without
+-- diacritics, for words too short for trigrams. Rows are keyed by media_files.seq and maintained
+-- by the storage crate in the same transaction as the tags and location.
 CREATE VIRTUAL TABLE media_file_search USING fts5 (
     title,
     artist,
     album,
     album_artist,
     other,
+    folded UNINDEXED,
     tokenize = 'trigram remove_diacritics 1'
 );
 

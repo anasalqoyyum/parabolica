@@ -143,8 +143,8 @@ Rules for migration files:
 | `library_roots` | Folder roots with path, volume identity and availability. An offline root keeps its files. |
 | `media_files` | Physical file identity: root, `/`-separated relative path, OS file ID, signature, presence. `seq` is the stable search key. |
 | `media_file_tags` | Display tags as read from the file, multi-value fields in order. Kept apart from identity. |
-| `media_file_search` | FTS5 trigram index over title, artist, album, album artist, genre/style/composer/performer/label/catalog number and file name. |
-| `virtual_tracks` | CUE frame ranges inside an image file. |
+| `media_file_search` | FTS5 trigram index over title, artist, album, album artist, genre/style/composer/performer/label/catalog number and file name, plus the same text lower-cased without Latin accents for one- and two-character words. Rewritten with the tags and on every move. |
+| `virtual_tracks` | CUE frame ranges inside an image file. Track numbers are unique per image, checked by `replace_virtual_tracks` so retained tracks can be renumbered. |
 | `provider_items`, `tracks`, `track_sources` | Provider item identity, logical recordings, and confirmed/suggested/rejected links from sources to recordings. A source links to at most one recording. |
 | `preferences` | Typed preferences (`preferences::Preference`), saved in batches. |
 | `queue_entries`, `queue_state` | The queue checkpoint: order, stable entry IDs, sources, current entry, position, repeat, shuffle seed and order. |

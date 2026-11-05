@@ -212,8 +212,11 @@ fn search_matches_substrings_in_any_script_and_ignores_diacritics() {
     assert_eq!(search("hoppipolla ros"), vec![accented]);
     assert_eq!(search("lilin pop"), vec![indonesian]);
     assert_eq!(search("recording"), vec![untagged]);
-    // Short words are matched without the trigram index.
+    // Short words are matched without the trigram index, folded the same way.
     assert_eq!(search("Ró"), vec![accented]);
+    assert_eq!(search("hoppipolla ro"), vec![accented]);
+    assert_eq!(search("HOPPIPOLLA RÓ"), vec![accented]);
+    assert_eq!(search("宇多"), vec![japanese]);
     assert_eq!(search("lilin 50%"), Vec::new());
     // Query syntax in user input is matched literally.
     assert_eq!(search("\"chrisye\" OR NOT"), Vec::new());
@@ -229,6 +232,19 @@ fn search_matches_substrings_in_any_script_and_ignores_diacritics() {
         .unwrap();
     assert_eq!(search("lilin pop"), Vec::new());
     assert_eq!(search("badai"), vec![indonesian]);
+
+    // Moving a file re-indexes its file name.
+    storage
+        .move_media_file(
+            untagged,
+            FileLocation {
+                root,
+                relative_path: ["inbox", "Night Take.flac"].iter().collect(),
+            },
+        )
+        .unwrap();
+    assert_eq!(search("recording"), Vec::new());
+    assert_eq!(search("night take"), vec![untagged]);
 
     // Removing the root removes its files from search.
     storage.remove_library_root(root).unwrap();
@@ -277,6 +293,59 @@ fn source_links_keep_one_recording_per_source_and_remember_rejections() {
     assert_eq!(links.len(), 2);
     assert_eq!(links[1].state, LinkState::Rejected);
     assert_eq!(links[1].source, remote);
+
+    // Distinct sources of each kind link independently.
+    let [second_file, third_file] = ["b.flac", "c.flac"].map(|path| {
+        storage
+            .record_media_file(file_record(root, path, &[]))
+            .unwrap()
+    });
+    let image = storage
+        .record_media_file(file_record(root, "image.flac", &[]))
+        .unwrap();
+    let cue_tracks: Vec<VirtualTrackRange> = (1..=2)
+        .map(|number| VirtualTrackRange {
+            id: VirtualTrackId::generate(),
+            image,
+            number,
+            frames: u64::from(number) * 100..u64::from(number) * 100 + 100,
+            index_01: u64::from(number) * 100,
+        })
+        .collect();
+    storage
+        .replace_virtual_tracks(image, cue_tracks.clone())
+        .unwrap();
+    for (first, second) in [
+        (
+            PlayableSource::Provider(youtube("video-2")),
+            PlayableSource::Provider(youtube("video-3")),
+        ),
+        (
+            PlayableSource::CueTrack(cue_tracks[0].id),
+            PlayableSource::CueTrack(cue_tracks[1].id),
+        ),
+        (
+            PlayableSource::LocalFile(second_file),
+            PlayableSource::LocalFile(third_file),
+        ),
+    ] {
+        let first_track = storage.create_track().unwrap();
+        let second_track = storage.create_track().unwrap();
+        storage
+            .link_source(first_track, first.clone(), LinkState::Suggested, None)
+            .unwrap();
+        storage
+            .link_source(second_track, second.clone(), LinkState::Confirmed, None)
+            .unwrap();
+        assert_eq!(
+            storage.source_link(&first).unwrap().unwrap().track,
+            first_track
+        );
+        assert_eq!(
+            storage.source_link(&second).unwrap().unwrap().track,
+            second_track
+        );
+    }
 
     // Removing the file removes its links but not the recording's other links.
     storage.remove_library_root(root).unwrap();
@@ -496,4 +565,63 @@ fn jobs_resume_after_reopening_and_never_complete_with_unfinished_items() {
             reason: "read-only file".into()
         }
     );
+}
+
+#[test]
+fn replacing_cue_tracks_can_renumber_retained_tracks_and_keeps_their_links() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("parabolica.db")).unwrap();
+    let root = storage.add_library_root(Path::new("/music"), None).unwrap();
+    let image = storage
+        .record_media_file(file_record(root, "image.flac", &[]))
+        .unwrap();
+    let range = |id, number: u8, start: u64| VirtualTrackRange {
+        id,
+        image,
+        number,
+        frames: start..start + 1_000,
+        index_01: start,
+    };
+    let (first, second) = (VirtualTrackId::generate(), VirtualTrackId::generate());
+    storage
+        .replace_virtual_tracks(image, vec![range(first, 1, 0), range(second, 2, 1_000)])
+        .unwrap();
+    let recording = storage.create_track().unwrap();
+    storage
+        .link_source(
+            recording,
+            PlayableSource::CueTrack(second),
+            LinkState::Confirmed,
+            None,
+        )
+        .unwrap();
+
+    // A revised sheet inserts a new first track and shifts the retained ones.
+    let inserted = VirtualTrackId::generate();
+    let revised = vec![
+        range(first, 2, 1_000),
+        range(second, 3, 2_000),
+        range(inserted, 1, 0),
+    ];
+    storage.replace_virtual_tracks(image, revised).unwrap();
+    let numbers: Vec<_> = storage
+        .virtual_tracks(image)
+        .unwrap()
+        .iter()
+        .map(|track| (track.number, track.id))
+        .collect();
+    assert_eq!(numbers, [(1, inserted), (2, first), (3, second)]);
+    assert_eq!(
+        storage
+            .source_link(&PlayableSource::CueTrack(second))
+            .unwrap()
+            .unwrap()
+            .track,
+        recording
+    );
+
+    assert!(matches!(
+        storage.replace_virtual_tracks(image, vec![range(first, 1, 0), range(second, 1, 1_000)]),
+        Err(StorageError::Invalid { .. })
+    ));
 }

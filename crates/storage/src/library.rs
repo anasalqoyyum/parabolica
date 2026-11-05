@@ -3,6 +3,7 @@
 //! File identity (location, OS file ID, signature) and the display tags read from the file are
 //! stored separately: rewriting tags never changes a file's identity, and identity survives a move.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use parabolica_domain::cue::VirtualTrackRange;
@@ -10,6 +11,7 @@ use parabolica_domain::files::{FileLocation, FileSignature, OsFileId, RootAvaila
 use parabolica_domain::ids::{LibraryRootId, MediaFileId, VirtualTrackId};
 use rusqlite::types::Value;
 use rusqlite::{OptionalExtension, Transaction, params, params_from_iter};
+use unicode_normalization::UnicodeNormalization;
 
 use crate::codec::{
     blob16, now_ms, optional_blob16, path_to_sql, relative_path_from_sql, relative_path_to_sql,
@@ -170,13 +172,6 @@ impl Storage {
         let relative_path = relative_path_to_sql(&record.location.relative_path)?;
         let signature = signature_to_sql(&record.signature)?;
         let tags = normalized_tags(record.tags)?;
-        let file_name = record
-            .location
-            .relative_path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or_default()
-            .to_owned();
         let root = record.location.root;
         let os_identity = record
             .os_file_id
@@ -241,7 +236,8 @@ impl Storage {
                     now_ms(),
                 ],
             )?;
-            write_tags(tx, id, &tags, &file_name)?;
+            write_tags(tx, id, &tags)?;
+            index_for_search(tx, id)?;
             Ok(id)
         })
     }
@@ -259,7 +255,8 @@ impl Storage {
                 "UPDATE media_files SET root_id = ?2, relative_path = ?3 WHERE id = ?1",
                 params![file.to_bytes(), root.to_bytes(), relative_path],
             )?;
-            expect_one(changed, file)
+            expect_one(changed, file)?;
+            index_for_search(tx, file)
         })
     }
 
@@ -341,6 +338,17 @@ impl Storage {
                 "belong to a different image",
             ));
         }
+        let mut numbers = HashSet::new();
+        let mut ids = HashSet::new();
+        if !ranges
+            .iter()
+            .all(|range| numbers.insert(range.number) && ids.insert(range.id))
+        {
+            return Err(StorageError::invalid(
+                "virtual tracks",
+                "repeat a track number or ID",
+            ));
+        }
         self.write(move |tx| {
             let kept: Vec<[u8; 16]> = ranges.iter().map(|range| range.id.to_bytes()).collect();
             let mut existing = tx.prepare("SELECT id FROM virtual_tracks WHERE image_file_id = ?1")?;
@@ -402,8 +410,9 @@ impl Storage {
     }
 
     /// Files whose title, artists, album, genre, label or file name contain every word of
-    /// `query`, ignoring case and diacritics. Words of three or more characters use the index;
-    /// shorter words filter the indexed matches (or scan when the query has no longer word).
+    /// `query`, ignoring case and diacritics. Words of three or more characters use the trigram
+    /// index; shorter words are matched against the folded text of the indexed matches (or of every
+    /// file when the query has no longer word).
     pub fn search_media_files(
         &self,
         query: &str,
@@ -415,11 +424,7 @@ impl Storage {
             if word.chars().count() >= 3 {
                 phrases.push(format!("\"{}\"", word.replace('"', "\"\"")));
             } else {
-                let escaped = word
-                    .replace('\\', "\\\\")
-                    .replace('%', "\\%")
-                    .replace('_', "\\_");
-                short_words.push(format!("%{escaped}%"));
+                short_words.push(fold_for_search(word));
             }
         }
         if phrases.is_empty() && short_words.is_empty() {
@@ -434,13 +439,9 @@ impl Storage {
             conditions.push("s.media_file_search MATCH ?".to_owned());
             values.push(Value::Text(phrases.join(" AND ")));
         }
-        for pattern in short_words {
-            conditions.push(
-                "(s.title || ' ' || s.artist || ' ' || s.album || ' ' || s.album_artist || ' ' || s.other)
-                 LIKE ? ESCAPE '\\'"
-                    .to_owned(),
-            );
-            values.push(Value::Text(pattern));
+        for word in short_words {
+            conditions.push("instr(s.folded, ?) > 0".to_owned());
+            values.push(Value::Text(word));
         }
         values.push(Value::Integer(limit));
         let order = if ranked { "s.rank, f.seq" } else { "f.seq" };
@@ -480,7 +481,6 @@ fn write_tags(
     tx: &Transaction<'_>,
     file: MediaFileId,
     tags: &[DisplayTag],
-    file_name: &str,
 ) -> Result<(), StorageError> {
     tx.execute(
         "DELETE FROM media_file_tags WHERE file_id = ?1",
@@ -504,36 +504,63 @@ fn write_tags(
         insert.execute(params![file.to_bytes(), tag.field, ordinal, tag.value])?;
     }
 
+    Ok(())
+}
+
+/// Rewrite the search row of `file` from its stored tags and file name.
+fn index_for_search(tx: &Transaction<'_>, file: MediaFileId) -> Result<(), StorageError> {
+    let (seq, relative_path): (i64, String) = tx.query_row(
+        "SELECT seq, relative_path FROM media_files WHERE id = ?1",
+        [file.to_bytes()],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    let mut statement = tx.prepare(
+        "SELECT field, value FROM media_file_tags WHERE file_id = ?1 ORDER BY field, ordinal",
+    )?;
+    let tags: Vec<(String, String)> = statement
+        .query_map([file.to_bytes()], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
     let joined = |fields: &[&str]| {
         tags.iter()
-            .filter(|tag| fields.contains(&tag.field.as_str()))
-            .map(|tag| tag.value.as_str())
+            .filter(|(field, _)| fields.contains(&field.as_str()))
+            .map(|(_, value)| value.as_str())
             .collect::<Vec<_>>()
             .join(" ")
     };
-    let mut other = joined(&SEARCH_OTHER);
-    if !file_name.is_empty() {
-        other = format!("{other} {file_name}");
-    }
-    let seq: i64 = tx.query_row(
-        "SELECT seq FROM media_files WHERE id = ?1",
-        [file.to_bytes()],
-        |row| row.get(0),
-    )?;
+    let file_name = relative_path_from_sql(&relative_path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default()
+        .to_owned();
+    let columns = [
+        joined(&[SEARCH_TITLE]),
+        joined(&[SEARCH_ARTIST]),
+        joined(&[SEARCH_ALBUM]),
+        joined(&[SEARCH_ALBUM_ARTIST]),
+        format!("{} {file_name}", joined(&SEARCH_OTHER))
+            .trim()
+            .to_owned(),
+    ];
+    let folded = fold_for_search(&columns.join(" "));
     tx.execute("DELETE FROM media_file_search WHERE rowid = ?1", [seq])?;
     tx.execute(
-        "INSERT INTO media_file_search (rowid, title, artist, album, album_artist, other)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO media_file_search (rowid, title, artist, album, album_artist, other, folded)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
-            seq,
-            joined(&[SEARCH_TITLE]),
-            joined(&[SEARCH_ARTIST]),
-            joined(&[SEARCH_ALBUM]),
-            joined(&[SEARCH_ALBUM_ARTIST]),
-            other.trim(),
+            seq, columns[0], columns[1], columns[2], columns[3], columns[4], folded
         ],
     )?;
     Ok(())
+}
+
+/// Lower-case `text` and drop Latin-script accents (combining diacritical marks after canonical
+/// decomposition), matching what the trigram tokenizer ignores. Other marks, such as kana voicing,
+/// are kept.
+fn fold_for_search(text: &str) -> String {
+    text.nfd()
+        .filter(|c| !('\u{0300}'..='\u{036f}').contains(c))
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 pub(crate) fn expect_one(changed: usize, id: impl std::fmt::Display) -> Result<(), StorageError> {
