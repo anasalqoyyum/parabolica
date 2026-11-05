@@ -26,7 +26,7 @@ pub enum CueRangeError {
     NonIntegralRate(u32),
     #[error("CUE sheet has no tracks")]
     Empty,
-    #[error("track {track} starts before the previous track")]
+    #[error("track {track} has an index at or before the previous track's INDEX 01")]
     OutOfOrder { track: u8 },
     #[error("track {track} INDEX 00 is after its INDEX 01")]
     PregapAfterStart { track: u8 },
@@ -100,7 +100,7 @@ pub fn virtual_track_ranges(
         PregapPolicy::PrependToTrack => track.pregap_start.unwrap_or(track.start),
     };
 
-    let mut previous_start = None;
+    let mut previous_index_01 = None;
     for track in tracks {
         if track
             .pregap_start
@@ -115,13 +115,15 @@ pub fn virtual_track_ranges(
                 track: track.number,
             });
         }
-        let start = playable_start(track);
-        if previous_start.is_some_and(|previous| start <= previous) {
+        // A track's earliest index must follow the previous track's INDEX 01 under either
+        // policy; otherwise a prepended pregap would cut into the previous track's start.
+        let earliest_index = track.pregap_start.unwrap_or(track.start);
+        if previous_index_01.is_some_and(|previous| earliest_index <= previous) {
             return Err(CueRangeError::OutOfOrder {
                 track: track.number,
             });
         }
-        previous_start = Some(start);
+        previous_index_01 = Some(track.start);
     }
 
     Ok(tracks

@@ -311,3 +311,47 @@ fn buffer_duration_is_derived_from_frames_and_rate() {
     );
     assert_eq!(asio.reported_latency, None);
 }
+
+#[test]
+fn float_sources_are_quantized_by_integer_output() {
+    let float_wav = SourceFormat {
+        codec: Codec::Wav,
+        sample: Some(SourceSampleFormat::Float { bits: 32 }),
+        ..flac_24_96()
+    };
+    let opus = SourceFormat {
+        codec: Codec::Opus,
+        sample: None,
+        ..flac_24_96()
+    };
+    let conversion = |source: &SourceFormat, sample| {
+        let route = PlaybackRoute::native(
+            local(),
+            pcm(96_000),
+            output(OutputBackend::Asio, sample, 96_000),
+        )
+        .unwrap();
+        status(
+            &SignalPath::describe(&route, Some(source), &ProcessingState::TRANSPARENT),
+            StageKind::Conversion,
+        )
+    };
+
+    assert_eq!(conversion(&float_wav, ASIO_INT32_24), StageStatus::Active);
+    assert_eq!(conversion(&float_wav, FLOAT32), StageStatus::Bypassed);
+    assert_eq!(conversion(&opus, ASIO_INT32_24), StageStatus::Active);
+    assert_eq!(conversion(&opus, FLOAT32), StageStatus::Bypassed);
+    assert_eq!(conversion(&flac_24_96(), FLOAT32), StageStatus::Bypassed);
+}
+
+#[test]
+fn unknown_source_format_never_reports_conversion_bypassed() {
+    let route = PlaybackRoute::native(
+        local(),
+        pcm(96_000),
+        output(OutputBackend::Asio, ASIO_INT32_24, 96_000),
+    )
+    .unwrap();
+    let path = SignalPath::describe(&route, None, &ProcessingState::TRANSPARENT);
+    assert_eq!(status(&path, StageKind::Conversion), StageStatus::Active);
+}

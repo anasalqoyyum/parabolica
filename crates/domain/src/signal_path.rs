@@ -120,9 +120,8 @@ impl SignalPath {
             }
             PlaybackRoute::Native { pcm, output, .. } => {
                 let shared = output.device.backend.uses_system_mixer();
-                let reduces_precision = source
-                    .and_then(source_precision_bits)
-                    .is_some_and(|bits| output_precision_bits(output.format.sample) < bits);
+                let exact_conversion = source
+                    .is_some_and(|source| represents_exactly(source.sample, output.format.sample));
                 let output_provenance = if output.device.backend == OutputBackend::Asio {
                     Provenance::Driver
                 } else {
@@ -148,7 +147,7 @@ impl SignalPath {
                     ),
                     stage(
                         StageKind::Conversion,
-                        active_if(reduces_precision),
+                        active_if(!exact_conversion),
                         Provenance::AppState,
                     ),
                     stage(StageKind::AppOutput, StageStatus::Active, output_provenance),
@@ -205,18 +204,25 @@ impl SignalPath {
     }
 }
 
-fn source_precision_bits(source: &SourceFormat) -> Option<u8> {
-    match source.sample? {
-        SourceSampleFormat::Int { bits } => Some(bits),
-        SourceSampleFormat::Float { bits: 32 } => Some(24),
-        SourceSampleFormat::Float { .. } => Some(53),
-    }
-}
-
-fn output_precision_bits(sample: OutputSampleFormat) -> u8 {
-    match sample {
-        OutputSampleFormat::Int { valid_bits, .. } => valid_bits,
-        OutputSampleFormat::Float { bits: 32 } => 24,
-        OutputSampleFormat::Float { .. } => 53,
+/// Whether every sample of `source` survives conversion to `output` unchanged. Float samples do
+/// not lie on an integer grid, so float-to-integer output always quantizes. A lossy codec has no
+/// stored sample format; its decoder produces float samples.
+fn represents_exactly(source: Option<SourceSampleFormat>, output: OutputSampleFormat) -> bool {
+    match (source, output) {
+        (Some(SourceSampleFormat::Int { bits }), OutputSampleFormat::Int { valid_bits, .. }) => {
+            valid_bits >= bits
+        }
+        (Some(SourceSampleFormat::Int { bits }), OutputSampleFormat::Float { bits: 32 }) => {
+            bits <= 24
+        }
+        (Some(SourceSampleFormat::Int { .. }), OutputSampleFormat::Float { .. }) => true,
+        (
+            Some(SourceSampleFormat::Float { bits: 32 }) | None,
+            OutputSampleFormat::Float { bits },
+        ) => bits >= 32,
+        (Some(SourceSampleFormat::Float { bits: source }), OutputSampleFormat::Float { bits }) => {
+            bits >= source
+        }
+        (Some(SourceSampleFormat::Float { .. }) | None, OutputSampleFormat::Int { .. }) => false,
     }
 }

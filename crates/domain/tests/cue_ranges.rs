@@ -181,3 +181,27 @@ fn cue_track_keeps_virtual_identity_and_resolves_to_its_image_range() {
         }
     );
 }
+
+#[test]
+fn a_pregap_cannot_start_before_the_previous_track_index_01() {
+    // Track 2's INDEX 00 precedes track 1's INDEX 01, which would cut track 1's start away.
+    let overlapping_pregap = [
+        CueTrackIndexes {
+            number: 1,
+            pregap_start: Some(0),
+            start: 1_000,
+        },
+        CueTrackIndexes {
+            number: 2,
+            pregap_start: Some(500),
+            start: 1_500,
+        },
+    ];
+    for policy in [PregapPolicy::AppendToPrevious, PregapPolicy::PrependToTrack] {
+        assert_eq!(
+            ranges(&overlapping_pregap, 2_000, policy),
+            Err(CueRangeError::OutOfOrder { track: 2 }),
+            "{policy:?}"
+        );
+    }
+}
