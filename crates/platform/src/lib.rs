@@ -1,5 +1,6 @@
 //! Operating-system integration kept out of the UI and domain crates.
 
+pub mod contrast;
 pub mod credentials;
 
 #[cfg(target_os = "linux")]

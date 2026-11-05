@@ -26,6 +26,7 @@ A pairing is valid only when both tasks' blockers are complete and shared contra
 - `apps/desktop/src/ui/theme/**`
 - `apps/desktop/src/ui/appearance/**`
 - `apps/desktop/src/main.rs`
+- `crates/platform/src/contrast.rs`
 
 Paths are proposed boundaries. Use the foundation issue's final layout and coordinate boundary changes before parallel edits.
 

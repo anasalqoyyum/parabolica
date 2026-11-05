@@ -68,7 +68,7 @@ Platform-specific modules are `cfg`-gated in their parent (`windows`, `macos`, `
 | `Cargo.toml`, `rust-toolchain.toml`, `apps/desktop/Cargo.toml`, `.github/workflows/check.yml` | #2, then coordinated changes |
 | `crates/domain/**` except `queue/**` | #2, then coordinated changes |
 | `crates/domain/src/queue/**` | #7 |
-| `apps/desktop/src/main.rs`, `apps/desktop/src/ui/{shell,theme,appearance}/**` | #3 |
+| `apps/desktop/src/main.rs`, `apps/desktop/src/ui/{shell,theme,appearance}/**`, `crates/platform/src/contrast.rs` | #3 |
 | `crates/storage/**` | #4 (each issue below owns its `migrations/NNNN_*.sql` files and its `src/<area>` repository module; see [Extending storage](#extending-storage)) |
 | `crates/audio/src/{decode,engine}/**`, `crates/audio/src/output/wasapi_shared.rs`, `apps/desktop/src/ui/player/**`, `apps/desktop/src/commands/playback.rs` | #5 |
 | `crates/audio/src/realtime.rs` | #2, then coordinated changes with #5 |
@@ -104,7 +104,7 @@ Where two rows overlap, the more specific path wins (for example #13 owns `crate
 - `parabolica-storage` owns the database file, its schema and every SQLite connection. The app reaches it only through `Storage`, whose methods are typed repository operations; no other crate depends on `rusqlite` or runs SQL.
 - One writer thread holds the only read-write connection. Each write method sends one closure to it over a bounded channel (64 pending writes) and waits for the result. The closure runs as one `BEGIN IMMEDIATE` transaction: an error or a panic rolls back everything it did, and the writer keeps serving.
 - Reads use a small pool of read-only connections in WAL mode. Each read method runs in one read transaction, so it sees a consistent snapshot and a long write does not block library browsing.
-- `Storage` methods block. Controllers and workers call them; the UI thread never does. `Storage` is `Clone`; clones share the writer, the readers and the lock.
+- `Storage` methods block. Controllers and workers call them; the UI thread never does. The one exception is startup in `main.rs`, which opens the database and reads the saved appearance before the event loop and any window exist. `Storage` is `Clone`; clones share the writer, the readers and the lock.
 - A `<database>.lock` file holds an OS lock for the life of the handle, so a second app instance gets `OpenError::InUse`.
 - Nothing reachable from the audio callback touches storage. Playback position is checkpointed by the queue controller on pause, seek, clean exit and a periodic timer, with `save_playback_position`.
 - The database holds no credentials. Preference keys that name a credential are rejected, and a test fails if any migration adds a table or column named for one. Storage errors name tables, columns and identifiers, never stored values.
@@ -196,6 +196,24 @@ Internal PCM is interleaved `f64` (`PcmSample`), which holds every integer sampl
 - Controllers publish state as `Versioned<T>` from a `SnapshotSequencer`. The UI keeps a `SnapshotGate` per stream and ignores anything not newer than what it applied.
 - The UI drains each event channel once per frame, runs `dispatch::coalesce` and applies the batch in one update. Position, progress and snapshot events coalesce to the latest; failures and other discrete events are all kept, in order.
 - The UI shows position by extrapolating the engine's `PositionStamp`, not by counting frames itself.
+
+## Desktop shell
+
+`main.rs` opens the database at `%LOCALAPPDATA%\Parabolica\parabolica.db` (`~/Library/Application Support/Parabolica` on macOS, `$XDG_DATA_HOME/parabolica` on Linux) before the event loop starts, reads the saved appearance, sets the theme and only then opens the window, so the first frame is drawn in the right theme. If the database cannot be opened, the shell runs without it and shows the error above the page.
+
+**Pages.** `ui::shell::Page` lists every destination and `SettingsSection` every settings section. `Shell::render_content` and `Shell::render_settings` match on them; a page without an implementation shows "Not available yet". A feature issue replaces its own arm with its view. A new destination also adds a `Page` variant and, for the sidebar, a `NAV_GROUPS` entry in `ui/shell/page.rs`; coordinate those edits with #3's owner. `Shell::navigate` records back/forward history. The player bar in `ui/shell/player_bar.rs` is the empty state until #5 replaces it with `ui::player`.
+
+**Appearance.** `ui::appearance` owns the saved `AppearanceMode` (preference `appearance.mode`, default Follow system), the last OS appearance and any active high-contrast colors; `ui::theme::apply` maps them onto Kit's theme. Follow system reacts to GPUI's window-appearance notification. Windows does not announce high contrast or animation-effect changes to GPUI, so both are re-read whenever the window becomes active. An active high-contrast theme replaces every color role with Windows system colors. Selections are saved off the UI thread, one write at a time, so the last choice is the one stored.
+
+**Accessibility.** Sidebar and settings navigation use `ui::shell::nav::NavItem`, a focusable list item that reports the current page as selected. Gaps found in Kit 0.9.0 and how the app handles them:
+
+- `SidebarMenuItem` cannot take keyboard focus. `NavItem` replaces it.
+- A focus handle passed to `track_focus` ignores the element's `tab_stop`; create the handle with `cx.focus_handle().tab_stop(true)`.
+- `Button::selected` changes only the presentation. Use list items with `aria_selected` where selection must be announced.
+- `RadioGroup` has no arrow-key movement; each choice is a Tab stop and Space or Enter selects it.
+- AccessKit names a `Role::Label` from its value: use `aria_value`, not `aria_label`, for text that should be read.
+
+UI tests in `apps/desktop/src/ui/shell/tests.rs` run the shell in Kit's headless window (`gpui-kit` `test-support`). That feature makes Cargo resolve Kit's optional `gpui-fast` packages, whose exact pins hold `taffy` at 0.15.0, `unicode-properties` at 0.1.3 and `windows-capture` at 1.4.2, the versions in Kit's own lockfile.
 
 ## Real-time audio callback
 
