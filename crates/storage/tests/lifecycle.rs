@@ -216,6 +216,8 @@ fn search_matches_substrings_in_any_script_and_ignores_diacritics() {
     assert_eq!(search("Ró"), vec![accented]);
     assert_eq!(search("hoppipolla ro"), vec![accented]);
     assert_eq!(search("HOPPIPOLLA RÓ"), vec![accented]);
+    assert_eq!(search("Ro\u{301}"), vec![accented]);
+    assert_eq!(search("Hoppi\u{301}polla"), vec![accented]);
     assert_eq!(search("宇多"), vec![japanese]);
     assert_eq!(search("lilin 50%"), Vec::new());
     // Query syntax in user input is matched literally.

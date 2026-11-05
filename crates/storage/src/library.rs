@@ -420,11 +420,12 @@ impl Storage {
     ) -> Result<Vec<MediaFileId>, StorageError> {
         let mut phrases = Vec::new();
         let mut short_words = Vec::new();
-        for word in query.split_whitespace() {
+        for word in query.split_whitespace().map(fold_for_search) {
+            // Counted after folding: a decomposed accent is not a character the index sees.
             if word.chars().count() >= 3 {
                 phrases.push(format!("\"{}\"", word.replace('"', "\"\"")));
             } else {
-                short_words.push(fold_for_search(word));
+                short_words.push(word);
             }
         }
         if phrases.is_empty() && short_words.is_empty() {
