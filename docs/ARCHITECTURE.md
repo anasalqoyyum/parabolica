@@ -69,7 +69,7 @@ Platform-specific modules are `cfg`-gated in their parent (`windows`, `macos`, `
 | `crates/domain/**` except `queue/**` | #2, then coordinated changes |
 | `crates/domain/src/queue/**` | #7 |
 | `apps/desktop/src/main.rs`, `apps/desktop/src/ui/{shell,theme,appearance}/**` | #3 |
-| `crates/storage/**` | #4 (migration files belong to the issues below) |
+| `crates/storage/**` | #4 (each issue below owns its `migrations/NNNN_*.sql` files and its `src/<area>` repository module; see [Extending storage](#extending-storage)) |
 | `crates/audio/src/{decode,engine}/**`, `crates/audio/src/output/wasapi_shared.rs`, `apps/desktop/src/ui/player/**`, `apps/desktop/src/commands/playback.rs` | #5 |
 | `crates/audio/src/realtime.rs` | #2, then coordinated changes with #5 |
 | `crates/library/**`, `apps/desktop/src/ui/library/**`, `apps/desktop/src/ui/sources/folders.rs` | #6 |
@@ -101,16 +101,64 @@ Where two rows overlap, the more specific path wins (for example #13 owns `crate
 
 ## Database ownership
 
-- `parabolica-storage` owns the database file, its schema and every SQLite connection.
-- One writer thread holds the only read-write connection. Other code submits typed write requests to it over a bounded channel and receives the result; no other crate opens a write connection or runs SQL directly.
-- Reads use separate read-only connections in WAL mode, so a long write does not block library browsing.
-- Nothing reachable from the audio callback touches storage. Playback position is checkpointed by the queue controller on pause, seek, clean exit and a periodic timer.
+- `parabolica-storage` owns the database file, its schema and every SQLite connection. The app reaches it only through `Storage`, whose methods are typed repository operations; no other crate depends on `rusqlite` or runs SQL.
+- One writer thread holds the only read-write connection. Each write method sends one closure to it over a bounded channel (64 pending writes) and waits for the result. The closure runs as one `BEGIN IMMEDIATE` transaction: an error or a panic rolls back everything it did, and the writer keeps serving.
+- Reads use a small pool of read-only connections in WAL mode. Each read method runs in one read transaction, so it sees a consistent snapshot and a long write does not block library browsing.
+- `Storage` methods block. Controllers and workers call them; the UI thread never does. `Storage` is `Clone`; clones share the writer, the readers and the lock.
+- A `<database>.lock` file holds an OS lock for the life of the handle, so a second app instance gets `OpenError::InUse`.
+- Nothing reachable from the audio callback touches storage. Playback position is checkpointed by the queue controller on pause, seek, clean exit and a periodic timer, with `save_playback_position`.
+- The database holds no credentials. Preference keys that name a credential are rejected, and a test fails if any migration adds a table or column named for one. Storage errors name tables, columns and identifiers, never stored values.
+
+### Opening and recovery
+
+`Storage::open(path)` creates the file when absent, runs `PRAGMA quick_check` on an existing one, checks the `application_id` and the migration ledger, then applies pending migrations. It never overwrites or deletes an existing file. Failures are `OpenError` variants, each with `recovery_options()` for the UI:
+
+| Error | Cause | Options |
+| --- | --- | --- |
+| `InUse` | Another instance holds the lock | Retry |
+| `Corrupt` | Not an SQLite file, or `quick_check` failed | Export a copy, move aside and start fresh |
+| `Incompatible` | Foreign database, a migration this build does not know (a newer app), or an applied migration whose checksum changed | Export a copy, move aside and start fresh |
+| `MigrationFailed` | A pending migration failed; the database is unchanged and the pre-migration backup is named | Export a copy, move aside and start fresh |
+
+`recovery::export_copy` copies the database and its WAL/journal without overwriting anything at the destination. `recovery::move_aside` renames the files to `<name>.unusable-<unix ms>` so the next open starts empty. A write that later hits corruption returns `StorageError::Corrupt` (`is_corrupt()`); the app drops its handles and offers the same options. Backup/export of a healthy database belongs to #31 (`crates/storage/src/backup/**`).
 
 ### Migrations
 
-Migrations live in `crates/storage/migrations/` as `NNNN_MM_slug.sql`. `NNNN` is the owning issue number, zero-padded (`0004`, `0006`, ...); `MM` orders one issue's migrations. Each issue owns its `NNNN_*` files only.
+Migrations live in `crates/storage/migrations/` as `NNNN_MM_slug.sql`. `NNNN` is the owning issue number, zero-padded (`0004`, `0006`, ...); `MM` orders one issue's migrations; the slug is lower-case letters, digits and `_`. Each issue owns its `NNNN_*` files only. `build.rs` embeds every file in the directory, sorted by name, and fails the build for a misnamed one, so adding a migration needs no list edit.
 
-Issues merge in dependency order, which is not always numeric order. The runner (#4) records applied migrations by file name and applies every unapplied one in name order. A migration may only reference tables created by its own issue or by issues that block it. A merged migration is never edited; fix it with a new one.
+Issues merge in dependency order, which is not always numeric order. The runner records each applied migration by file name with a checksum (line endings ignored) and applies every unapplied one in name order. All pending migrations run in one transaction with foreign keys off, followed by `PRAGMA foreign_key_check`; any failure leaves the database as it was. An existing database is first copied with `VACUUM INTO` to `<name>.backup-<unix ms>-before-<first pending migration>`.
+
+Rules for migration files:
+
+- Use `STRICT` tables, 16-byte `BLOB` IDs (`CHECK (length(id) = 16)`) and integer Unix milliseconds for times.
+- Reference only tables created by your own issue, by #4, or by issues that block yours.
+- Contain no `BEGIN`, `COMMIT` or `PRAGMA foreign_keys`; the runner owns the transaction.
+- A merged migration is never edited; the checksum makes the next open fail with `Incompatible`. Fix it with a new migration.
+- Rebuild a table (create new, copy, drop, rename) instead of editing a column's constraints.
+
+### Core schema (`0004_01_core.sql`)
+
+| Tables | Holds |
+| --- | --- |
+| `library_roots` | Folder roots with path, volume identity and availability. An offline root keeps its files. |
+| `media_files` | Physical file identity: root, `/`-separated relative path, OS file ID, signature, presence. `seq` is the stable search key. |
+| `media_file_tags` | Display tags as read from the file, multi-value fields in order. Kept apart from identity. |
+| `media_file_search` | FTS5 trigram index over title, artist, album, album artist, genre/style/composer/performer/label/catalog number and file name. |
+| `virtual_tracks` | CUE frame ranges inside an image file. |
+| `provider_items`, `tracks`, `track_sources` | Provider item identity, logical recordings, and confirmed/suggested/rejected links from sources to recordings. A source links to at most one recording. |
+| `preferences` | Typed preferences (`preferences::Preference`), saved in batches. |
+| `queue_entries`, `queue_state` | The queue checkpoint: order, stable entry IDs, sources, current entry, position, repeat, shuffle seed and order. |
+| `jobs`, `job_items` | Job state checked with `JobState::transition` inside the transaction, progress, failure reason, and per-item outcomes with the file signature they were recorded against. |
+
+### Extending storage
+
+A feature issue that owns an `NNNN` migration adds:
+
+1. Its migration files.
+2. Its repository as a new module, `crates/storage/src/<area>.rs` (or a directory), owned by that issue, containing `impl Storage { ... }` methods built on the crate-internal `write`/`read` closures. Register it with one `pub mod <area>;` line in `crates/storage/src/lib.rs`; that line is the only shared edit, and concurrent issues rebase it.
+3. Tests that open a temporary database through `Storage::open`.
+
+Changing a #4 repository method or the core schema is a coordinated change with #4's consumers.
 
 ## Domain contracts
 
