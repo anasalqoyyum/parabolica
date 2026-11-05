@@ -2,10 +2,11 @@
 
 A personal desktop music player combining local files and experimental YouTube Music streaming. The selected UI stack is Rust with GPUI Kit.
 
-This repository currently contains the product requirements, technical specification, design artifacts, and implementation work breakdown. The player has not been implemented yet.
+This repository contains the product requirements, technical specification, design artifacts, implementation work breakdown and the Rust workspace. The workspace opens an empty GPUI Kit window; playback and library features are not implemented yet.
 
 - [Product requirements](PRODUCT.md)
 - [Technical specification](docs/TECH_SPEC.md)
+- [Architecture, contracts and path ownership](docs/ARCHITECTURE.md)
 - [Design system](DESIGN.md)
 - [Design handoff and Doop frame links](docs/design/README.md)
 - [Discogs API research](docs/research/DISCOGS.md)
@@ -35,4 +36,17 @@ Review images are committed copies of captures saved in the owner's Pictures/Scr
 
 Start with the assigned issue and [the agent workflow](docs/implementation/AGENT_WORKFLOW.md). Check its blockers and ownership before editing. Feature completion includes integration, error handling, meaningful checks and user-visible behavior, rather than a detached mock or an unconnected backend.
 
-`master` is the default branch. There is no application build command yet; the workspace issue establishes the pinned toolchain and validation commands.
+`master` is the default branch.
+
+## Build and check
+
+Rust 1.99.0 and GPUI Kit 0.9.0 are pinned. On Windows, install Visual Studio 2022 Build Tools with the C++ desktop workload and a Windows SDK, plus CMake. Then, from the repository root:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+cargo run -p parabolica-desktop --locked
+```
+
+[Architecture](docs/ARCHITECTURE.md) lists the toolchain requirements, crate layout and the CI workflow that runs these on Windows.

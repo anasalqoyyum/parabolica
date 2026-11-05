@@ -1,0 +1,65 @@
+name: Check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  windows-msvc:
+    name: Windows MSVC
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          $active = rustup show active-toolchain
+          Write-Output $active
+          if ($active -notmatch '^1\.99\.0-x86_64-pc-windows-msvc') {
+            throw "Expected the pinned 1.99.0 MSVC toolchain, got: $active"
+          }
+          rustc --version --verbose
+          cmake --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Lockfile is current
+        run: cargo metadata --locked --format-version 1 > $null
+
+      - name: Domain has no UI, device, database or network dependencies
+        run: |
+          $tree = cargo tree --locked -p parabolica-domain -e normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(gpui-kit|gpui-pre|windows|rusqlite|cpal|tokio|reqwest) v'
+          if ($forbidden) { throw "parabolica-domain depends on: $forbidden" }
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Build desktop app
+        run: |
+          cargo build -p parabolica-desktop --locked
+          Get-Item target\debug\parabolica.exe | Format-List FullName, Length
