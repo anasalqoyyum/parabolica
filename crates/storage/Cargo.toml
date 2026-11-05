@@ -8,6 +8,12 @@ publish.workspace = true
 
 [dependencies]
 parabolica-domain.workspace = true
+rusqlite = { version = "=0.41.1", default-features = false, features = ["bundled"] }
+thiserror.workspace = true
+unicode-normalization = "=0.1.26"
+
+[dev-dependencies]
+tempfile = "=3.27.0"
 
 [lints]
 workspace = true
