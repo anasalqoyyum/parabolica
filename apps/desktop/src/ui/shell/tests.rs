@@ -255,3 +255,26 @@ fn shortcuts_work_after_the_focused_element_leaves_the_page(cx: &mut TestAppCont
         )
     });
 }
+
+#[gpui_kit::test]
+fn theme_choices_fit_the_minimum_window_width(cx: &mut TestAppContext) {
+    let (window, shell) = open_shell(cx, 640., None, None);
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            shell.navigate(Page::Settings(SettingsSection::Appearance), cx)
+        })
+    });
+    cx.update_window(window, |_, window, cx| {
+        window.render_frame(cx);
+        let content = window.find("content").bounds();
+        let mut group = window.within("appearance-mode");
+        for index in 0..3usize {
+            let choice = group.find(index).bounds();
+            assert!(
+                choice.right() <= content.right(),
+                "choice {index} is clipped"
+            );
+        }
+    })
+    .unwrap();
+}

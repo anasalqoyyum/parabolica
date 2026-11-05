@@ -268,6 +268,7 @@ impl Shell {
 
         v_flex()
             .id("content")
+            .test_support()
             .role(Role::Main)
             .flex_1()
             .min_h_0()
