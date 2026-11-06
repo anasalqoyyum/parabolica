@@ -6,6 +6,7 @@
 
 pub mod backup;
 mod codec;
+pub mod collection;
 mod database;
 mod error;
 pub mod jobs;

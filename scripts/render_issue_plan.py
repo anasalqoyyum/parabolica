@@ -80,6 +80,9 @@ def main():
     index = "# Implementation plan\n\n"
     index += f"{reference('delivery')} tracks the complete delivery. {len(TASKS)} issues cover the player, integration, platform builds and final acceptance. P0/P1 controls order; every listed task must finish in this delivery.\n\n"
     index += section("Start here", f"Start {reference('foundation')} and {reference('discogs-access')} independently. The latter can need external clarification. After #2 merges, #4 becomes available. Each subsequent task starts only after its own blockers are implemented, merged and verified.\n\nRead [the agent workflow](AGENT_WORKFLOW.md) before assigning work. Issue status labels describe the initial scheduling snapshot; the live merged implementation determines readiness.")
+    evidence = [f"- {reference(task['key'])}: [implementation and verification]({task['implementation_evidence']})" for task in TASKS if task.get("implementation_evidence")]
+    if evidence:
+        index += section("Implementation evidence", "\n".join(evidence))
     index += section("Dependencies and parallel work", "The table lists direct blockers. Linked parallel pairings are conditional on both tasks' prerequisites and exclusive file ownership. Tasks absent from a pairing should run sequentially unless their owners establish a safe boundary.\n\n| Issue | Priority | Blocked by | Can run in parallel with |\n| --- | --- | --- | --- |\n" + "\n".join(f"| {reference(t['key'])} | {t['priority']} | {', '.join(reference(k, False) for k in t['blocked_by']) or 'None'} | {', '.join(reference(k, False) for k in t['parallel_with']) or 'None'} |" for t in TASKS))
     coverage = [
         ("Workspace, Kit and contracts", ["foundation", "storage", "shell"]),

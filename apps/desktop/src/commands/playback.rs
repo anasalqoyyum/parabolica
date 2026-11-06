@@ -37,6 +37,13 @@ impl PlaybackCommands {
         entry
     }
 
+    pub fn play_indexed(&self, file: MediaFileId, path: PathBuf) -> QueueEntryId {
+        let entry = QueueEntryId::generate();
+        self.engine
+            .play(entry, ResolvedSource::local_file(file, path));
+        entry
+    }
+
     pub fn pause(&self) {
         self.engine.pause();
     }

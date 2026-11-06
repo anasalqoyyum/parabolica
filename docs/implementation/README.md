@@ -8,6 +8,10 @@ Start [#2 Build the Rust workspace and freeze integration contracts](https://git
 
 Read [the agent workflow](AGENT_WORKFLOW.md) before assigning work. Issue status labels describe the initial scheduling snapshot; the live merged implementation determines readiness.
 
+## Implementation evidence
+
+- [#6 Implement folder indexing and the local collection UI](https://github.com/anasalqoyyum/parabolica/issues/6): [implementation and verification](local-collection.md)
+
 ## Dependencies and parallel work
 
 The table lists direct blockers. Linked parallel pairings are conditional on both tasks' prerequisites and exclusive file ownership. Tasks absent from a pairing should run sequentially unless their owners establish a safe boundary.

@@ -2,7 +2,7 @@
 
 A personal desktop music player combining local files and experimental YouTube Music streaming. The selected UI stack is Rust with GPUI Kit.
 
-This repository contains the product requirements, technical specification, design artifacts, implementation work breakdown and the Rust workspace. The app opens the desktop shell with navigation and Light, Dark and Follow system appearance; playback and library features are not implemented yet.
+This repository contains the product requirements, technical specification, design artifacts, implementation work breakdown and the Rust workspace. The app includes the desktop shell, appearance settings, Windows WASAPI Shared playback and a persistent local collection. Add a music folder, browse Albums, Artists, Songs or Folders, search indexed metadata, and play an album while indexing continues. [Local collection evidence](docs/implementation/local-collection.md) separates automated checks from outstanding Windows runtime acceptance.
 
 - [Product requirements](PRODUCT.md)
 - [Technical specification](docs/TECH_SPEC.md)
