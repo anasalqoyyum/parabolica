@@ -10,7 +10,7 @@ The selected stack is Rust with GPUI Kit. Keep decoder, DSP, output, storage and
 
 ## Windows verification
 
-Windows MSVC is the primary target and CI runs there; run the ARCHITECTURE check commands on Windows as well as Linux before opening a PR.
+Windows MSVC is the primary target, and CI's Windows MSVC job runs the ARCHITECTURE check commands on every PR. These steps apply when the machine can reach Windows (WSL on the Windows PC). On a Linux-only machine, run the checks on Linux, let CI cover the Windows build, lint and tests, and list Windows runtime checks (OS stores, audio devices, the real app) as not verified in the PR and issue.
 
 - From WSL, run the Windows toolchain (`cargo.exe`) through PowerShell on the worktree's `\\wsl.localhost\...` path, with `CARGO_TARGET_DIR` on a Windows drive and one target directory per worktree so parallel threads don't contend for build locks.
 - A running `parabolica.exe` holds its binary and makes the next build fail with "Access is denied". Close the app before rebuilding.
