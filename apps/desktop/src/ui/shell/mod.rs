@@ -25,6 +25,7 @@ use nav::NavItem;
 use page::{History, NAV_GROUPS};
 pub use page::{Page, SettingsSection};
 
+use crate::ui::accounts::AccountsSettings;
 use crate::ui::appearance::{self, AppearanceSettings};
 use crate::ui::player::Player;
 
@@ -335,6 +336,7 @@ impl Shell {
                     })),
             )
             .child(div().flex_1().min_w_0().child(match current {
+                SettingsSection::SourcesAndOutput => AccountsSettings.into_any_element(),
                 SettingsSection::Appearance => AppearanceSettings.into_any_element(),
                 _ => not_available(cx),
             }))

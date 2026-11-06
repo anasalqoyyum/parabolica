@@ -41,7 +41,7 @@ The app binary is `parabolica` (`parabolica.exe` on Windows). `.github/workflows
 | `parabolica-replaygain` | `crates/replaygain` | domain | Loudness analysis and `REPLAYGAIN_*` mapping |
 | `parabolica-tags` | `crates/tags` | domain | Tag/artwork reads and safe album writes |
 | `parabolica-cue` | `crates/cue` | domain | CUE parsing |
-| `parabolica-platform` | `crates/platform` | domain | Devices, ASIO enumeration, credentials, media controls, lifecycle |
+| `parabolica-platform` | `crates/platform` | domain, provider contracts | Devices, ASIO enumeration, credentials, media controls, lifecycle |
 | `parabolica-provider-contracts` | `crates/providers/contracts` | domain | Provider adapter traits and credential contracts |
 | `parabolica-youtube` | `crates/providers/youtube` | domain, provider contracts | Experimental YouTube Music adapter |
 | `parabolica-discogs` | `crates/providers/discogs` | domain, provider contracts | Read-only Discogs adapter |
@@ -187,6 +187,20 @@ Internal PCM is interleaved `f64` (`PcmSample`), which holds every integer sampl
 **Providers** (`provider`). `ProviderCapabilities` treats an unreported capability as `NotSupported`. Without `AppOwnedPcm`, the provider owns playback and native ReplayGain, device selection, exclusive mode and ASIO do not apply.
 
 **Queue** (`queue`). Each insertion creates new `QueueEntryId`s, so a duplicated source is two entries. Moves and removals keep IDs. #7 extends this module with shuffle, repeat, history and persistence.
+
+## Provider accounts
+
+`parabolica-provider-contracts` defines how providers sign in, keep credentials and report what they can do. Downstream providers (#15 YouTube Music, #20 Discogs, #30 scrobbling) plug into it without changing domain or queue types.
+
+- **Services** (`service`). `ServiceId` is a catalog `ProviderId` or `Scrobbling`. Its `key()` names the OS credential. `AccountIdentity` holds the service's stable account ID, which a reconnect compares, and a display name.
+- **Secrets** (`secret`). Tokens, cookies, session keys and authorization codes travel as `Secret`: `Debug` prints `Secret([redacted])`, there is no `Display`, and memory is zeroed on drop. `redact_url` reduces a URL to scheme and host, because signed media URLs carry signatures in the path as well as the query. `ProviderError` messages name the service and problem, never a value.
+- **Credentials** (`credentials`). `CredentialStore` keeps one credential per service in the OS store; the database never holds one. `parabolica_platform::credentials::OsCredentialStore` uses Windows Credential Manager: a generic credential named `Parabolica/<service key>`, persisted for the current user on this computer (`CRED_PERSIST_LOCAL_MACHINE`), with the account ID as user name, the display name as comment and the secret (at most 2,560 bytes) as blob. macOS and Linux report `CredentialError::Unavailable` until #33/#34 add Keychain and Secret Service. `MemoryCredentialStore` (feature `test-support`) is for tests.
+- **Capabilities** (`capabilities`). A provider declares each capability as `Access::Public` or `Access::Account` in `ProviderSupport`. `capabilities(connection, reachability)` reports Offline or the restriction for every declared capability when the service is unreachable, SignedOut or SessionExpired for account capabilities, and `NotSupported` for anything undeclared in every state.
+- **Requests** (`requests`). `Account::requests()` returns a `RequestScope`. `begin()` cancels the previous request; `accept(Tagged<T>)` drops results from superseded requests and from an ended session. Adapters poll `Request::check()` between network calls. Signing out or reconnecting ends the session, which cancels its requests.
+- **Sign-in** (`auth`). A provider implements `AuthFlow::sign_in` (through the user's default browser, never a native password field) and `revoke`. `BrowserAuthorization` creates the `state` and PKCE S256 values and validates the redirect; `LoopbackReceiver` receives it on `127.0.0.1` at an ephemeral port, answers requests with another `state` or path and keeps waiting, and honours cancellation and a timeout. `parabolica_platform::credentials::SystemBrowser` opens `https`/`http` URLs. No provider ships a shared token; `tests/no_embedded_credentials.rs` scans provider and app sources for known credential formats and opaque key-like literals.
+- **Lifecycle** (`account`). `Account` restores the saved sign-in, runs the flow, rejects a superseded attempt and a reconnect that signed in to a different account, saves the credential and ends the old session. `sign_out` removes the credential first; if that fails the account stays connected and says so. It then ends the session, sends `AccountEvent::SignedOut` (controllers stop provider playback and pending work) and asks the service to revoke. `report(request, error)` marks the account expired when a request of the current session is rejected. Every change publishes a versioned `AccountStatus`; `changed(version)` resolves when a newer one exists.
+
+The desktop registers accounts in `ui::accounts::init` and shows them in Settings › Sources & output. One task per account awaits `changed` and applies snapshots through a `SnapshotGate`, so changes made by controllers appear without a UI action. Account work runs on background threads. YouTube Music is registered without a flow until #15 provides one: its card can show and remove a saved sign-in, and Connect is disabled with "Sign-in is not available in this build."
 
 ## Commands, events and generations
 
