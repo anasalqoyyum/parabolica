@@ -32,6 +32,7 @@ fn main() {
         init(cx);
         ui::shell::init(cx);
         // Resolve the theme before the window exists, so the first frame is drawn in it.
+        ui::library::init(storage.clone(), cx);
         ui::appearance::init(saved_appearance, storage, cx);
         ui::accounts::init(cx);
 

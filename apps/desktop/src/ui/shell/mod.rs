@@ -27,7 +27,9 @@ pub use page::{Page, SettingsSection};
 
 use crate::ui::accounts::AccountsSettings;
 use crate::ui::appearance::{self, AppearanceSettings};
+use crate::ui::library::LibraryView;
 use crate::ui::player::Player;
+use parabolica_storage::collection::BrowseKind;
 
 actions!(shell, [FocusSearch, GoBack, GoForward]);
 
@@ -58,7 +60,8 @@ pub struct Shell {
     sidebar_revealed: bool,
     storage_error: Option<SharedString>,
     player: Entity<Player>,
-    _subscriptions: [Subscription; 3],
+    library: Entity<LibraryView>,
+    _subscriptions: [Subscription; 4],
 }
 
 impl Shell {
@@ -69,7 +72,17 @@ impl Shell {
     ) -> Self {
         let search =
             cx.new(|cx| InputState::new(window, cx).placeholder("Search songs, albums, artists"));
+        let player = cx.new(Player::new);
+        let library = cx.new(|cx| LibraryView::new(player.clone(), cx));
+        let search_library = library.clone();
         let subscriptions = [
+            cx.subscribe(
+                &search,
+                move |_, input, _: &gpui_kit::component::input::InputEvent, cx| {
+                    let text = input.read(cx).value().to_string();
+                    search_library.update(cx, |library, cx| library.search(text, cx));
+                },
+            ),
             cx.observe_window_appearance(window, |_, window, cx| {
                 appearance::system_appearance_changed(window.appearance(), cx);
             }),
@@ -92,7 +105,8 @@ impl Shell {
             search,
             sidebar_revealed: false,
             storage_error,
-            player: cx.new(Player::new),
+            player,
+            library,
             _subscriptions: subscriptions,
         }
     }
@@ -103,7 +117,25 @@ impl Shell {
 
     pub fn navigate(&mut self, page: Page, cx: &mut Context<Self>) {
         self.history.visit(page);
+        self.sync_library_page(cx);
         cx.notify();
+    }
+
+    fn sync_library_page(&mut self, cx: &mut Context<Self>) {
+        let page = self.page();
+        let target = match page {
+            Page::Albums => Some((BrowseKind::Albums, false)),
+            Page::Songs => Some((BrowseKind::Songs, false)),
+            Page::Artists => Some((BrowseKind::Artists, false)),
+            Page::Settings(SettingsSection::SourcesAndOutput | SettingsSection::Library) => {
+                Some((BrowseKind::Folders, true))
+            }
+            _ => None,
+        };
+        if let Some((kind, settings)) = target {
+            self.library
+                .update(cx, |library, cx| library.show(kind, settings, cx));
+        }
     }
 
     fn focus_search(&mut self, _: &FocusSearch, window: &mut Window, cx: &mut Context<Self>) {
@@ -113,11 +145,13 @@ impl Shell {
 
     fn go_back(&mut self, _: &GoBack, _: &mut Window, cx: &mut Context<Self>) {
         self.history.back();
+        self.sync_library_page(cx);
         cx.notify();
     }
 
     fn go_forward(&mut self, _: &GoForward, _: &mut Window, cx: &mut Context<Self>) {
         self.history.forward();
+        self.sync_library_page(cx);
         cx.notify();
     }
 
@@ -274,7 +308,10 @@ impl Shell {
             .role(Role::Main)
             .flex_1()
             .min_h_0()
-            .overflow_y_scroll()
+            .when(
+                matches!(page, Page::Settings(_) | Page::ReplayGain),
+                |view| view.overflow_y_scroll(),
+            )
             .px_8()
             .py_8()
             .gap_6()
@@ -305,9 +342,9 @@ impl Shell {
             )
             .child(match page {
                 Page::Settings(section) => self.render_settings(section, cx),
-                Page::Albums => not_available(cx),
-                Page::Songs => not_available(cx),
-                Page::Artists => not_available(cx),
+                Page::Albums | Page::Songs | Page::Artists => {
+                    self.library.clone().into_any_element()
+                }
                 Page::ReplayGain => not_available(cx),
             })
     }
@@ -335,11 +372,18 @@ impl Shell {
                         )
                     })),
             )
-            .child(div().flex_1().min_w_0().child(match current {
-                SettingsSection::SourcesAndOutput => AccountsSettings.into_any_element(),
-                SettingsSection::Appearance => AppearanceSettings.into_any_element(),
-                _ => not_available(cx),
-            }))
+            .child(
+                div().flex_1().min_w_0().child(match current {
+                    SettingsSection::SourcesAndOutput => v_flex()
+                        .gap_6()
+                        .child(self.library.clone())
+                        .child(AccountsSettings)
+                        .into_any_element(),
+                    SettingsSection::Library => self.library.clone().into_any_element(),
+                    SettingsSection::Appearance => AppearanceSettings.into_any_element(),
+                    _ => not_available(cx),
+                }),
+            )
             .into_any_element()
     }
 }

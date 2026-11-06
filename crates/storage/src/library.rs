@@ -509,7 +509,10 @@ fn write_tags(
 }
 
 /// Rewrite the search row of `file` from its stored tags and file name.
-fn index_for_search(tx: &Transaction<'_>, file: MediaFileId) -> Result<(), StorageError> {
+pub(crate) fn index_for_search(
+    tx: &Transaction<'_>,
+    file: MediaFileId,
+) -> Result<(), StorageError> {
     let (seq, relative_path): (i64, String) = tx.query_row(
         "SELECT seq, relative_path FROM media_files WHERE id = ?1",
         [file.to_bytes()],
@@ -558,7 +561,7 @@ fn index_for_search(tx: &Transaction<'_>, file: MediaFileId) -> Result<(), Stora
 /// Lower-case `text`, drop Latin-script accents (combining diacritical marks after canonical
 /// decomposition) and recompose, so Hangul syllables and voiced kana keep their composed form.
 /// Indexed text and queries both go through this, so an NFD file name matches an NFC query.
-fn fold_for_search(text: &str) -> String {
+pub(crate) fn fold_for_search(text: &str) -> String {
     text.nfd()
         .filter(|c| !('\u{0300}'..='\u{036f}').contains(c))
         .nfc()

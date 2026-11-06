@@ -1,6 +1,8 @@
 //! Persistent player bar and transport controls.
 
+use std::collections::VecDeque;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
@@ -20,6 +22,7 @@ use parabolica_audio::engine::{EngineEvent, EngineSnapshot};
 use parabolica_domain::control::SnapshotGate;
 use parabolica_domain::format::{Codec, SourceSampleFormat};
 use parabolica_domain::gain::Volume;
+use parabolica_domain::ids::{MediaFileId, QueueEntryId};
 use parabolica_domain::output::OutputBackend;
 use parabolica_domain::playback::{PositionStamp, TransportState};
 
@@ -39,6 +42,8 @@ pub struct Player {
     volume: Entity<SliderState>,
     /// Where the user is dragging the seek slider, as a fraction of the duration.
     dragging: Option<f32>,
+    album_remaining: VecDeque<(MediaFileId, PathBuf)>,
+    album_entry: Option<QueueEntryId>,
     _subscriptions: [Subscription; 2],
     _poll: Task<()>,
 }
@@ -98,6 +103,8 @@ impl Player {
             seek,
             volume,
             dragging: None,
+            album_remaining: VecDeque::new(),
+            album_entry: None,
             _subscriptions: subscriptions,
             _poll: poll,
         }
@@ -111,8 +118,16 @@ impl Player {
             match event {
                 EngineEvent::Snapshot(snapshot) => {
                     if let Some(snapshot) = self.gate.accept(*snapshot) {
+                        let ended = snapshot.playback.current == self.album_entry
+                            && self.album_entry.is_some()
+                            && snapshot.playback.transport == TransportState::Stopped
+                            && snapshot.source.is_some()
+                            && snapshot.failure.is_none();
                         self.position = snapshot.playback.position;
                         self.snapshot = Some(snapshot);
+                        if ended {
+                            self.play_next_indexed();
+                        }
                     }
                 }
                 EngineEvent::Position(position) => self.position = Some(position),
@@ -130,6 +145,36 @@ impl Player {
             .map_or(TransportState::Stopped, |snapshot| {
                 snapshot.playback.transport
             })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn indexed_entry_for_test(&self) -> Option<QueueEntryId> {
+        self.album_entry
+    }
+
+    #[cfg(test)]
+    pub(crate) fn remaining_indexed_for_test(&self) -> usize {
+        self.album_remaining.len()
+    }
+
+    pub fn is_playing(&self) -> bool {
+        matches!(
+            self.transport(),
+            TransportState::Playing | TransportState::Loading
+        )
+    }
+
+    pub fn play_indexed(&mut self, files: Vec<(MediaFileId, PathBuf)>, cx: &mut Context<Self>) {
+        self.album_remaining = files.into();
+        self.play_next_indexed();
+        cx.notify();
+    }
+
+    fn play_next_indexed(&mut self) {
+        self.album_entry = self
+            .album_remaining
+            .pop_front()
+            .map(|(file, path)| self.commands.play_indexed(file, path));
     }
 
     fn duration(&self) -> Option<Duration> {
@@ -178,6 +223,8 @@ impl Player {
                 return;
             };
             let _ = this.update(cx, |this, cx| {
+                this.album_remaining.clear();
+                this.album_entry = None;
                 this.commands.open_file(path);
                 cx.notify();
             });

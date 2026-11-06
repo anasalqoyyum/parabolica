@@ -8,6 +8,16 @@ publish.workspace = true
 
 [dependencies]
 parabolica-domain.workspace = true
+parabolica-storage.workspace = true
+notify = "=8.2.1"
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
+symphonia = { version = "=0.6.1", default-features = false, features = ["flac", "mp3", "id3v1", "id3v2", "isomp4", "wav", "pcm", "ogg"] }
+thiserror.workspace = true
+file-id = "=0.2.3"
+sha2 = "=0.10.9"
+
+[dev-dependencies]
+tempfile = "=3.27.0"
 
 [lints]
 workspace = true
