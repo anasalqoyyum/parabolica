@@ -155,7 +155,18 @@ pub fn scan(
             .strip_prefix(&root.path)
             .map_err(|_| LibraryError::Invalid("File escaped its music folder".into()))?
             .to_owned();
-        let mut signature = signature(&file_meta)?;
+        let mut signature = match signature(&file_meta) {
+            Ok(signature) => signature,
+            Err(error) => {
+                complete = false;
+                failure(
+                    &mut progress,
+                    format!("{}: Can't read file signature: {error}", path.display()),
+                );
+                publish(&progress);
+                continue;
+            }
+        };
         let identity = os_identity(&path);
         let mut previous = by_path.get(&metadata::path_key(&relative)).copied();
         let mut moved = previous.is_some_and(|old| old.file.location.relative_path != relative);
@@ -210,7 +221,21 @@ pub fn scan(
         if cancel.is_cancelled() {
             return Err(LibraryError::Cancelled);
         }
-        signature.content_digest = Some(sampled_digest(&path, &signature)?);
+        signature.content_digest = match sampled_digest(&path, &signature) {
+            Ok(digest) => Some(digest),
+            Err(error) => {
+                complete = false;
+                failure(
+                    &mut progress,
+                    format!(
+                        "{}: Can't read file: {error}. Check file access, then rescan.",
+                        path.display()
+                    ),
+                );
+                publish(&progress);
+                continue;
+            }
+        };
         let (metadata, error) = match metadata::read_with_cancel(&path, cancel) {
             Ok(meta) => (meta, None),
             Err(e) => {
@@ -233,7 +258,21 @@ pub fn scan(
         if cancel.is_cancelled() {
             return Err(LibraryError::Cancelled);
         }
-        let after = signature_for_path(&path)?;
+        let after = match signature_for_path(&path) {
+            Ok(signature) => signature,
+            Err(error) => {
+                complete = false;
+                failure(
+                    &mut progress,
+                    format!(
+                        "{}: Can't recheck file: {error}. Rescan after file changes finish.",
+                        path.display()
+                    ),
+                );
+                publish(&progress);
+                continue;
+            }
+        };
         if !signature.matches_recorded(&after) {
             complete = false;
             failure(

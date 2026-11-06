@@ -14,7 +14,7 @@ To override grouping, select songs in Songs or album detail. Selections survive 
 
 Developed on Linux x86_64 with pinned Rust 1.99.0 and GPUI Kit 0.9.0. The application was built but was not launched as a Linux desktop port. No Linux audio output was added.
 
-Formatting, Clippy, all 197 workspace tests and the desktop build passed on Linux. The implementation-plan generator validated 35 issues and left generated outputs current. Checks ran from the repository root:
+Formatting, Clippy, all 199 workspace tests and the desktop build passed on Linux. The implementation-plan generator validated 35 issues and left generated outputs current. Checks ran from the repository root:
 
 ```sh
 cargo fmt --all --check
@@ -26,7 +26,7 @@ python3 scripts/render_issue_plan.py
 
 The integration fixtures use temporary SQLite databases and synthetic audio from `crates/audio/tests/fixtures`. The collection test constructs bounded FLAC comments around that fixture's synthetic PCM. Pictures are synthetic PNGs or deliberately oversized invalid payloads. Reference catalog artwork is not packaged.
 
-Coverage in `crates/library/tests/collection.rs` includes incremental visibility, unchanged-file skipping, database reopen, FTS accents/CJK, sorting and pagination, two-disc albums, compilation artists, distinct release IDs, explicit regroup/reset, root relocation, offline preservation, missing-file recovery, cancellation before and during a pass, corrupt tags, oversized pictures, thumbnail bounds, Unicode and long paths, Unix symlink cycles, real Linux watcher updates, interrupted-job restart, and queue/source-link/custom-tag preservation. Review regressions cover raw MP3 ratings/ReplayGain/custom tags on changed-file rescans, destination-first moves between roots, invalid relocation interrupting an active scan, inaccessible child-directory recovery details, and WAV/MP4 header-count and total-metadata limits. An interrupted metadata projection is invalidated in SQLite and retried even if the core file signature is current.
+Coverage in `crates/library/tests/collection.rs` includes incremental visibility, unchanged-file skipping, database reopen, FTS accents/CJK, sorting and pagination, two-disc albums, compilation artists, distinct release IDs, explicit regroup/reset, root relocation, offline preservation, missing-file recovery, cancellation before and during a pass, corrupt tags, oversized pictures, thumbnail bounds, Unicode and long paths, Unix symlink cycles, real Linux watcher updates, interrupted-job restart, and queue/source-link/custom-tag preservation. Review regressions cover raw MP3 ratings/ReplayGain/custom tags on changed-file rescans, destination-first moves between roots, invalid relocation interrupting an active scan, inaccessible child-directory recovery details, and WAV/MP4 header-count and total-metadata limits. Later regressions verify that a file-level digest read failure leaves the pass incomplete while readable files continue indexing, and that top-level navigation clears a previous folder-root filter. An interrupted metadata projection is invalidated in SQLite and retried even if the core file signature is current.
 
 The service unit test injects a rescan flag and a watcher error to verify full reconciliation requests. These simulate overflow signals; they do not prove native Windows watcher overflow behavior. A Windows-only fixture creates and removes a junction cycle for CI.
 

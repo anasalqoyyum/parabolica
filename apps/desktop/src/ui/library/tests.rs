@@ -229,3 +229,63 @@ fn indexing_error_paths_and_rescan_are_visible_in_collection_and_folder_settings
         view.status.failures.is_empty() && !view.status.scanning
     });
 }
+
+#[gpui_kit::test]
+fn top_level_pages_and_search_clear_a_previously_browsed_root(cx: &mut TestAppContext) {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("db")).unwrap();
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/audio/tests/fixtures")
+        .join("flac/s16_44100.flac");
+    let mut roots = Vec::new();
+    for name in ["a", "b"] {
+        let folder = dir.path().join(name);
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::copy(&fixture, folder.join(format!("piece-{name}.flac"))).unwrap();
+        roots.push(parabolica_library::index::add_folder(&storage, &folder).unwrap());
+    }
+    let (window, view) = open(cx, storage.clone());
+    settle(cx, &view, |view, _| {
+        view.items.len() == 2 && !view.loading && !view.status.scanning
+    });
+    for kind in [BrowseKind::Albums, BrowseKind::Songs, BrowseKind::Artists] {
+        cx.update(|cx| view.update(cx, |view, cx| view.browse_root(roots[0], cx)));
+        settle(cx, &view, |view, _| {
+            view.query.root == Some(roots[0]) && !view.loading
+        });
+        cx.update(|cx| view.update(cx, |view, cx| view.show(kind, false, cx)));
+        settle(cx, &view, |view, _| {
+            view.query.root.is_none() && !view.loading
+        });
+        cx.update(|cx| {
+            let items = &view.read(cx).items;
+            if kind == BrowseKind::Artists {
+                assert_eq!(items.len(), 1);
+                assert_eq!(items[0].subtitle, "2");
+            } else {
+                assert_eq!(items.len(), 2);
+            }
+        });
+    }
+    cx.update(|cx| {
+        view.update(cx, |view, cx| {
+            view.show(BrowseKind::Songs, false, cx);
+            view.search("piece-b".into(), cx);
+        })
+    });
+    settle(cx, &view, |view, _| view.items.len() == 1 && !view.loading);
+    cx.update(|cx| {
+        let ItemId::Song(file) = view.read(cx).items[0].id else {
+            panic!("song");
+        };
+        assert_eq!(
+            storage.media_file(file).unwrap().unwrap().location.root,
+            roots[1]
+        );
+    });
+    cx.update_window(window, |_, window, cx| {
+        window.render_frame(cx);
+        assert!(window.try_find("collection-item-0").is_some());
+    })
+    .unwrap();
+}

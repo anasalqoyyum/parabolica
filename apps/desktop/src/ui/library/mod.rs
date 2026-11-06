@@ -137,6 +137,7 @@ impl LibraryView {
         self.folders_settings = settings;
         self.selection = None;
         self.query.album = None;
+        self.query.root = None;
         self.query.artist = None;
         self.query.folder = None;
         self.query.offset = 0;

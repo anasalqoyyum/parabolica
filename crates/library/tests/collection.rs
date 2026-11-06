@@ -594,7 +594,7 @@ fn windows_junction_cycle_is_skipped() {
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("Music");
     flac(&music.join("Album/one.flac"), &[("ALBUM", "Album")]);
-    let link = music.join("Album/cycle");
+    let link = music.join("Album").join("cycle");
     let output = std::process::Command::new("cmd.exe")
         .args(["/C", "mklink", "/J"])
         .arg(&link)
@@ -933,5 +933,53 @@ fn inaccessible_child_folder_is_reported_without_marking_its_files_missing() {
     assert_eq!(
         storage.media_file(file).unwrap().unwrap().presence,
         Presence::Present
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_digest_read_failure_keeps_indexing_and_defers_missing_reconciliation() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("Music");
+    let blocked = music.join("blocked.flac");
+    flac(&blocked, &[("TITLE", "Before")]);
+    flac(&music.join("gone.flac"), &[("TITLE", "Gone")]);
+    let storage = Storage::open(dir.path().join("db")).unwrap();
+    let root = index::add_folder(&storage, &music).unwrap();
+    scan(&storage);
+    let gone = storage
+        .indexed_files(root)
+        .unwrap()
+        .into_iter()
+        .find(|record| record.file.location.relative_path == Path::new("gone.flac"))
+        .unwrap()
+        .file
+        .id;
+    flac(&blocked, &[("TITLE", "Changed and unreadable")]);
+    fs::set_permissions(&blocked, fs::Permissions::from_mode(0o000)).unwrap();
+    fs::remove_file(music.join("gone.flac")).unwrap();
+    for name in ["readable-a", "readable-b"] {
+        flac(&music.join(format!("{name}.flac")), &[("TITLE", name)]);
+    }
+    let result = index::scan(
+        &storage,
+        &storage.library_roots().unwrap()[0],
+        &CancelToken::new(),
+        |_| {},
+    );
+    fs::set_permissions(&blocked, fs::Permissions::from_mode(0o600)).unwrap();
+    let progress = result.unwrap();
+    assert_eq!(progress.indexed, 2);
+    assert!(!progress.finished);
+    assert!(progress.failures.iter().any(|failure|failure.contains("blocked.flac")&&failure.contains("Can't read file:")));
+    assert_eq!(
+        storage.media_file(gone).unwrap().unwrap().presence,
+        Presence::Present
+    );
+    scan(&storage);
+    assert_eq!(
+        storage.media_file(gone).unwrap().unwrap().presence,
+        Presence::Missing
     );
 }
