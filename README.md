@@ -2,7 +2,7 @@
 
 A personal desktop music player combining local files and experimental YouTube Music streaming. The selected UI stack is Rust with GPUI Kit.
 
-This repository contains the product requirements, technical specification, design artifacts, implementation work breakdown and the Rust workspace. The workspace opens an empty GPUI Kit window; playback and library features are not implemented yet.
+This repository contains the product requirements, technical specification, design artifacts, implementation work breakdown and the Rust workspace. The app opens the desktop shell with navigation and Light, Dark and Follow system appearance; playback and library features are not implemented yet.
 
 - [Product requirements](PRODUCT.md)
 - [Technical specification](docs/TECH_SPEC.md)

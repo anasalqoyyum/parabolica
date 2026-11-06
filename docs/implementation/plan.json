@@ -85,7 +85,8 @@
         "apps/desktop/src/ui/shell/**",
         "apps/desktop/src/ui/theme/**",
         "apps/desktop/src/ui/appearance/**",
-        "apps/desktop/src/main.rs"
+        "apps/desktop/src/main.rs",
+        "crates/platform/src/contrast.rs"
       ],
       "outcome": "Launch a native Windows player shell matching the saved design, with usable navigation and correct Light, Dark and Follow system behavior.",
       "deliverables": [
