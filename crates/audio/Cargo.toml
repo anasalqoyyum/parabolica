@@ -8,6 +8,40 @@ publish.workspace = true
 
 [dependencies]
 parabolica-domain.workspace = true
+rtrb = "=0.4.1"
+rubato = "=5.0.1"
+symphonia = { version = "=0.6.1", default-features = false, features = [
+    "aac",
+    "flac",
+    "id3v1",
+    "id3v2",
+    "isomp4",
+    "mp3",
+    "ogg",
+    "pcm",
+    "wav",
+] }
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = [
+    "Win32_Devices_FunctionDiscovery",
+    "Win32_Foundation",
+    "Win32_Media_Audio",
+    "Win32_Media_KernelStreaming",
+    "Win32_Media_Multimedia",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Shell_PropertiesSystem",
+] }
+
+[dev-dependencies]
+md-5 = "=0.10.6"
+serde_json = "=1.0.154"
+tempfile = "=3.27.0"
 
 [features]
 # Exposes `realtime::probe` for tests in other crates that check callback allocation.

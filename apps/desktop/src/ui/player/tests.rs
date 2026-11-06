@@ -1,0 +1,97 @@
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+use gpui_kit::test::TestWindowExt as _;
+use gpui_kit::{AnyWindowHandle, Entity, TestAppContext, WindowOptions};
+use parabolica_audio::decode::{BasicTags, EncoderDelay, SourceInfo};
+use parabolica_audio::engine::NoOutput;
+use parabolica_domain::format::{
+    ChannelCount, Codec, SampleRate, SourceFormat, SourceSampleFormat,
+};
+
+use super::*;
+
+fn fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/audio/tests/fixtures")
+        .join(name)
+}
+
+fn open_player(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Player>) {
+    cx.update(|cx| {
+        gpui_kit::init(cx);
+        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| {
+            cx.new(|cx| {
+                let (commands, events) = PlaybackCommands::with_output(Box::new(NoOutput));
+                Player::with_commands(commands, events, cx)
+            })
+        })
+        .expect("open the player window")
+    })
+}
+
+#[gpui_kit::test]
+fn a_failed_output_shows_an_error_and_the_player_stays_usable(cx: &mut TestAppContext) {
+    let (window, player) = open_player(cx);
+    cx.update(|cx| {
+        player.update(cx, |player, _| {
+            player.commands.open_file(fixture("flac/s24_48000.flac"));
+        })
+    });
+
+    let expected = "Can't play s24_48000.flac: audio output is not available on this platform yet";
+    let mut label = None;
+    for _ in 0..200 {
+        // The engine runs on its own threads; give it real time, then run the poll timer.
+        std::thread::sleep(Duration::from_millis(5));
+        cx.executor().advance_clock(FRAME);
+        cx.run_until_parked();
+        label = cx
+            .update_window(window, |_, window, cx| {
+                window.render_frame(cx);
+                window
+                    .try_find("player-error")
+                    .and_then(|error| error.label().map(str::to_owned))
+            })
+            .unwrap();
+        if label.is_some() {
+            break;
+        }
+    }
+    assert_eq!(label.as_deref(), Some(expected));
+    cx.update_window(window, |_, window, _| {
+        assert_eq!(window.find("now-playing").value(), Some("Nothing playing"));
+        assert_eq!(window.find("player-play").disabled(), Some(true));
+        assert_ne!(window.find("open-file").disabled(), Some(true));
+    })
+    .unwrap();
+}
+
+#[test]
+fn labels_report_source_format_and_time() {
+    let mut info = SourceInfo {
+        container: "FLAC",
+        format: SourceFormat {
+            codec: Codec::Flac,
+            sample: Some(SourceSampleFormat::Int { bits: 24 }),
+            rate: SampleRate::new(96_000).unwrap(),
+            channels: ChannelCount::STEREO,
+        },
+        frames: None,
+        encoder_delay: EncoderDelay {
+            delay_frames: None,
+            padding_frames: None,
+            trimmed: false,
+        },
+        tags: BasicTags::default(),
+    };
+    assert_eq!(format_label(&info), "FLAC · 24-bit · 96 kHz");
+    info.format.codec = Codec::Mp3;
+    info.format.sample = None;
+    info.format.rate = SampleRate::new(44_100).unwrap();
+    assert_eq!(format_label(&info), "MP3 · 44.1 kHz");
+
+    assert_eq!(clock(Duration::from_secs(84)), "1:24");
+    assert_eq!(clock(Duration::from_millis(59_999)), "0:59");
+    assert_eq!(clock(Duration::from_secs(3_725)), "1:02:05");
+}

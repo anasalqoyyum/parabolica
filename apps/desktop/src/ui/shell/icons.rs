@@ -16,6 +16,7 @@ gpui_kit::assets::icon_assets!(
         SkipForward,
         SlidersHorizontal,
         SunMoon,
+        Volume2,
     ]
 );
 

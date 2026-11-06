@@ -1,0 +1,111 @@
+{
+  "flac/s16_44100.flac": {
+    "bits": 16,
+    "rate": 44100,
+    "channels": 2,
+    "frames": 8820,
+    "pcm_md5": "370ccd487d12d5b52f4af432777c69a6",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_44100.flac": {
+    "bits": 24,
+    "rate": 44100,
+    "channels": 2,
+    "frames": 8820,
+    "pcm_md5": "70ea23e570a0ef9264281b84e1a94c03",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_48000.flac": {
+    "bits": 24,
+    "rate": 48000,
+    "channels": 2,
+    "frames": 9600,
+    "pcm_md5": "f58b09a536bbabb04355e5927ebc663b",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_88200.flac": {
+    "bits": 24,
+    "rate": 88200,
+    "channels": 2,
+    "frames": 17640,
+    "pcm_md5": "f69e7c408b1ea8ca02441cc962ffbd2f",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_96000.flac": {
+    "bits": 24,
+    "rate": 96000,
+    "channels": 2,
+    "frames": 19200,
+    "pcm_md5": "49ba4c9ddac908903548675c33e9366c",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_176400.flac": {
+    "bits": 24,
+    "rate": 176400,
+    "channels": 2,
+    "frames": 35280,
+    "pcm_md5": "b573de9a05c40fa2d9de0373ba353711",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "flac/s24_192000.flac": {
+    "bits": 24,
+    "rate": 192000,
+    "channels": 2,
+    "frames": 38400,
+    "pcm_md5": "e9a6a58eaac346ad5ce2d98d9fab1f71",
+    "decoders": [
+      "libFLAC via libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "wav/s16_44100.wav": {
+    "bits": 16,
+    "rate": 44100,
+    "channels": 2,
+    "frames": 8820,
+    "pcm_md5": "370ccd487d12d5b52f4af432777c69a6",
+    "decoders": [
+      "libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "wav/s24_48000.wav": {
+    "bits": 24,
+    "rate": 48000,
+    "channels": 2,
+    "frames": 9600,
+    "pcm_md5": "f58b09a536bbabb04355e5927ebc663b",
+    "decoders": [
+      "libsndfile 1.2.2",
+      "ffmpeg version 8.0.1-3ubuntu2"
+    ]
+  },
+  "lossy/sine.mp3": {
+    "rate": 44100,
+    "channels": 2,
+    "ffmpeg_frames": 44100
+  },
+  "lossy/sine.m4a": {
+    "rate": 44100,
+    "channels": 2,
+    "ffmpeg_frames": 45056
+  }
+}

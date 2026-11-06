@@ -3,7 +3,6 @@
 mod icons;
 mod nav;
 mod page;
-mod player_bar;
 #[cfg(test)]
 mod tests;
 
@@ -25,9 +24,9 @@ pub use icons::AppAssets;
 use nav::NavItem;
 use page::{History, NAV_GROUPS};
 pub use page::{Page, SettingsSection};
-use player_bar::PlayerBar;
 
 use crate::ui::appearance::{self, AppearanceSettings};
+use crate::ui::player::Player;
 
 actions!(shell, [FocusSearch, GoBack, GoForward]);
 
@@ -57,6 +56,7 @@ pub struct Shell {
     /// Whether the user expanded the sidebar while the window is narrow.
     sidebar_revealed: bool,
     storage_error: Option<SharedString>,
+    player: Entity<Player>,
     _subscriptions: [Subscription; 3],
 }
 
@@ -91,6 +91,7 @@ impl Shell {
             search,
             sidebar_revealed: false,
             storage_error,
+            player: cx.new(Player::new),
             _subscriptions: subscriptions,
         }
     }
@@ -372,7 +373,7 @@ impl Render for Shell {
                             .child(self.render_content(cx)),
                     ),
             )
-            .child(PlayerBar)
+            .child(self.player.clone())
     }
 }
 
