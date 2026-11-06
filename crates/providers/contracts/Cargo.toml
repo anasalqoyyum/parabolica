@@ -6,8 +6,21 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+# An in-memory `CredentialStore` for tests in this and dependent crates.
+test-support = []
+
 [dependencies]
+base64 = "=0.22.1"
+getrandom = "=0.3.4"
 parabolica-domain.workspace = true
+sha2 = "=0.10.9"
+thiserror.workspace = true
+url = "=2.5.8"
+zeroize = "=1.9.1"
+
+[dev-dependencies]
+parabolica-provider-contracts = { path = ".", features = ["test-support"] }
 
 [lints]
 workspace = true

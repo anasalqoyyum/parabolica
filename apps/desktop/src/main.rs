@@ -33,6 +33,7 @@ fn main() {
         ui::shell::init(cx);
         // Resolve the theme before the window exists, so the first frame is drawn in it.
         ui::appearance::init(saved_appearance, storage, cx);
+        ui::accounts::init(cx);
 
         let options = WindowOptions {
             titlebar: Some(TitlebarOptions {

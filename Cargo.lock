@@ -5169,6 +5169,8 @@ name = "parabolica-platform"
 version = "0.1.0"
 dependencies = [
  "parabolica-domain",
+ "parabolica-provider-contracts",
+ "url",
  "windows 0.62.2",
 ]
 
@@ -5176,7 +5178,14 @@ dependencies = [
 name = "parabolica-provider-contracts"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "getrandom 0.3.4",
  "parabolica-domain",
+ "parabolica-provider-contracts",
+ "sha2 0.10.9",
+ "thiserror 2.0.21",
+ "url",
+ "zeroize",
 ]
 
 [[package]]
