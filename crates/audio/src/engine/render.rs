@@ -139,6 +139,9 @@ impl StreamRenderer {
         self.shared.played.store(0, Ordering::Release);
         self.epoch = request;
         self.epoch_started = false;
+        // A fade left over from the old epoch must not consume the new epoch's first frames;
+        // only `playing` starts it, at the target gain.
+        self.gain = 0.0;
         self.shared.epoch_ack.store(request, Ordering::Release);
     }
 
@@ -272,6 +275,26 @@ mod tests {
         assert_eq!(shared.epoch_ack.load(Ordering::Acquire), 7);
         assert_eq!(shared.played_in(7), 0);
         assert_eq!(shared.played_in(6), 0);
+    }
+
+    #[test]
+    fn a_flush_ends_any_fade_from_the_old_epoch() {
+        let (mut producer, mut renderer, shared) = renderer(16);
+        producer.push_entire_slice(&[0.5; 8]).unwrap();
+        shared.playing.store(true, Ordering::Release);
+        let mut block = [0.0f32; 4];
+        renderer.render(&mut block[..], 2);
+        assert_eq!(renderer.gain, 1.0);
+
+        shared.playing.store(false, Ordering::Release);
+        shared.epoch_request.store(3, Ordering::Release);
+        renderer.apply_flush();
+        assert_eq!(renderer.gain, 0.0);
+        // New-epoch frames written right after the acknowledgement stay queued while paused.
+        producer.push_entire_slice(&[0.25; 8]).unwrap();
+        renderer.render(&mut block[..], 2);
+        assert_eq!(block, [0.0; 4]);
+        assert_eq!(shared.played_in(3), 0);
     }
 
     #[test]

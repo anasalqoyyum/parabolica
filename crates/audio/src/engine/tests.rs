@@ -722,3 +722,33 @@ fn pause_while_loading_is_reported_and_holds() {
     }
     assert_eq!(counting_frame(harness.capture.epoch(generation)[0]), 0);
 }
+
+#[test]
+fn rejecting_a_source_stops_what_was_playing() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = counting_wav(dir.path(), "long.wav", 8, 0);
+    let mut harness = Harness::new(48_000);
+    harness.play(&path);
+    harness.wait_transport(TransportState::Playing);
+
+    let entry = QueueEntryId::generate();
+    let range = ResolvedSource::Local {
+        file: MediaFileId::generate(),
+        path: path.clone(),
+        span: parabolica_domain::source::FrameSpan::Range(0..48_000),
+    };
+    harness.engine.play(entry, range);
+    let failed = harness.wait("CUE rejection", |snapshot| snapshot.failure.is_some());
+    assert_eq!(failed.failure.unwrap().error, PlaybackError::CueRange);
+    assert_eq!(failed.playback.transport, TransportState::Stopped);
+    assert_eq!(failed.playback.current, None);
+
+    harness.drain_for(Duration::from_millis(100));
+    let frames = harness.capture.total_frames();
+    harness.drain_for(Duration::from_millis(150));
+    assert_eq!(
+        harness.capture.total_frames(),
+        frames,
+        "old audio kept playing"
+    );
+}

@@ -332,9 +332,14 @@ impl Player {
                 .disabled(true)
         };
 
+        // Shares the width equally with the side sections, up to 420 px, and keeps room for its
+        // buttons at the minimum window width.
         v_flex()
-            .flex_shrink_0()
-            .w(px(420.))
+            .id("player-transport")
+            .test_support()
+            .flex_1()
+            .max_w(px(420.))
+            .min_w(px(220.))
             .gap_1()
             .items_center()
             .child(
@@ -432,7 +437,7 @@ impl Player {
                         .aria_value(format!("{summary}, {device}"))
                         .min_w_0()
                         .items_end()
-                        .child(div().text_sm().child(summary))
+                        .child(div().truncate().text_sm().child(summary))
                         .child(
                             div()
                                 .truncate()
@@ -451,6 +456,7 @@ impl Player {
                 Slider::new(&self.volume)
                     .accessibility_label("Volume")
                     .w(px(96.))
+                    .min_w(px(96.))
                     .flex_shrink_0(),
             )
     }

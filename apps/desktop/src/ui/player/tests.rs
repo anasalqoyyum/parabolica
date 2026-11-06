@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use gpui_kit::test::TestWindowExt as _;
-use gpui_kit::{AnyWindowHandle, Entity, TestAppContext, WindowOptions};
+use gpui_kit::test::{TestQueryExt as _, TestWindowExt as _};
+use gpui_kit::{
+    AnyWindowHandle, Bounds, Entity, Point, TestAppContext, WindowBounds, WindowOptions, px, size,
+};
 use parabolica_audio::decode::{BasicTags, EncoderDelay, SourceInfo};
 use parabolica_audio::engine::NoOutput;
 use parabolica_domain::format::{
@@ -17,10 +19,17 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn open_player(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Player>) {
+fn open_player(cx: &mut TestAppContext, width: f32) -> (AnyWindowHandle, Entity<Player>) {
     cx.update(|cx| {
         gpui_kit::init(cx);
-        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| {
+        let options = WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(Bounds {
+                origin: Point::default(),
+                size: size(px(width), px(480.)),
+            })),
+            ..Default::default()
+        };
+        gpui_kit::open_window(options, cx, |_, cx| {
             cx.new(|cx| {
                 let (commands, events) = PlaybackCommands::with_output(Box::new(NoOutput));
                 Player::with_commands(commands, events, cx)
@@ -32,7 +41,7 @@ fn open_player(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Player>) {
 
 #[gpui_kit::test]
 fn a_failed_output_shows_an_error_and_the_player_stays_usable(cx: &mut TestAppContext) {
-    let (window, player) = open_player(cx);
+    let (window, player) = open_player(cx, 1280.);
     cx.update(|cx| {
         player.update(cx, |player, _| {
             player.commands.open_file(fixture("flac/s24_48000.flac"));
@@ -94,4 +103,24 @@ fn labels_report_source_format_and_time() {
     assert_eq!(clock(Duration::from_secs(84)), "1:24");
     assert_eq!(clock(Duration::from_millis(59_999)), "0:59");
     assert_eq!(clock(Duration::from_secs(3_725)), "1:02:05");
+}
+
+#[gpui_kit::test]
+fn controls_stay_apart_at_the_minimum_window_width(cx: &mut TestAppContext) {
+    // `main.rs` sets a 640 px minimum window width.
+    let (window, _player) = open_player(cx, 640.);
+    cx.update_window(window, |_, window, cx| {
+        window.render_frame(cx);
+        let transport = window.find("player-transport").bounds();
+        assert!(window.find("open-file").bounds().right() <= transport.left());
+        let volume = window.find_by_label("Volume").bounds();
+        assert!(transport.right() <= volume.left());
+        assert!(volume.right() <= px(640.));
+        assert!(
+            volume.size.width >= px(96.),
+            "volume slider is {:?} wide",
+            volume.size.width
+        );
+    })
+    .unwrap();
 }

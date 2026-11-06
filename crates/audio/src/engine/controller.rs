@@ -219,14 +219,7 @@ impl Controller {
             }
             Command::Resume => self.resume(),
             Command::Stop => {
-                let generation = self.generations.advance();
-                self.set_playing(false);
-                if let Some(stream) = &self.stream {
-                    stream.worker.send(WorkerCommand::Stop { generation });
-                }
-                self.current = None;
-                self.want_playing = false;
-                self.transport = TransportState::Stopped;
+                self.stop_playback();
                 self.publish();
             }
             Command::Seek { entry, position } => self.seek(entry, position),
@@ -243,6 +236,18 @@ impl Controller {
         }
     }
 
+    /// Stop and forget the current entry. The worker flushes anything already buffered.
+    fn stop_playback(&mut self) {
+        let generation = self.generations.advance();
+        self.set_playing(false);
+        if let Some(stream) = &self.stream {
+            stream.worker.send(WorkerCommand::Stop { generation });
+        }
+        self.current = None;
+        self.want_playing = false;
+        self.transport = TransportState::Stopped;
+    }
+
     /// Load `source` and play it from `start`, a source frame.
     fn load(&mut self, entry: QueueEntryId, source: ResolvedSource, start: u64) {
         self.failure = None;
@@ -253,9 +258,14 @@ impl Controller {
                 ..
             } => path.clone(),
             ResolvedSource::Local { path, .. } => {
-                return self.fail(Some(entry), Some(path.clone()), PlaybackError::CueRange);
+                let path = path.clone();
+                self.stop_playback();
+                return self.fail(Some(entry), Some(path), PlaybackError::CueRange);
             }
-            _ => return self.fail(Some(entry), None, PlaybackError::NotLocal),
+            _ => {
+                self.stop_playback();
+                return self.fail(Some(entry), None, PlaybackError::NotLocal);
+            }
         };
         if let Err(error) = self.ensure_stream() {
             self.current = None;
