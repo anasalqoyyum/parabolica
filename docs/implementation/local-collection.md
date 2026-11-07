@@ -1,6 +1,6 @@
 # Local collection evidence
 
-Issue [#6](https://github.com/anasalqoyyum/parabolica/issues/6) adds the collection implementation on top of master `3b6924b3035ae9391d4c26413503e9cad4dd1ab6`. Its playback prerequisite merged in #40 as `8f9d69da5b18712b2fd370060d4658973bef3b1b`. The issue remains open for Windows runtime acceptance. The implementation PR and its final source and merge commits are recorded in the live issue discussion.
+Issue [#6](https://github.com/anasalqoyyum/parabolica/issues/6) adds the collection implementation on top of master `3b6924b3035ae9391d4c26413503e9cad4dd1ab6`. Its playback prerequisite merged in #40 as `8f9d69da5b18712b2fd370060d4658973bef3b1b`. The collection merged in #43 as `be5495285a9c040d2db80268785b52962cdc9f8b`. Native Windows evidence and the user's subsequent acceptance decision are recorded below.
 
 ## Application entry point
 
@@ -38,14 +38,29 @@ No 100,000-track search or startup benchmark has been measured. The budgets in T
 
 The existing Windows MSVC job runs lockfile validation, the domain dependency boundary, formatting, workspace Clippy/tests and the desktop build on each PR. Its actual result belongs to the PR's current head. A Linux result does not establish Windows success. The Windows junction fixture and long-path fixture are automated checks, separate from application and hardware acceptance.
 
-## Outstanding Windows acceptance
+## Native Windows evidence, 2026-11-07
 
-Keep #6 open with `status:blocked` until these checks have actual evidence:
+The merged implementation ran on Windows 11 Pro 10.0.26300, x86_64, with Rust 1.99.0 MSVC and GPUI Kit 0.9.0. PowerShell launched the actual `parabolica.exe` from the WSL worktree using an isolated `LOCALAPPDATA` and a dedicated Windows Cargo target directory. Windows UI Automation drove the app and recorded its accessible controls. Disposable fixtures were removed after verification; the user's existing app database and source music were not modified.
 
-- Run the native app and use Add music folder, search, Albums, Artists, Songs, Folders, album detail and grouping overrides with real files. Confirm an album plays through the Windows backend before the full scan finishes.
-- Unplug and reconnect a removable drive while browsing and indexing. Confirm the collection stays visible, playback reports unavailable files, reconnect restores availability, and Locate folder preserves file and album IDs after a move or drive-letter change.
-- Exercise real Windows Unicode/long paths, case-only renames, junction cycles, permission loss and recovery, concurrent file/tag changes and native watcher overflow or dropped events. CI fixtures cover only their temporary test cases.
-- Verify embedded and sidecar covers, corrupt metadata and huge artwork in the native application. Confirm indexing cancellation and recovery remain responsive during playback.
-- Use keyboard-only navigation and Narrator, including virtualized rows, search, folder removal confirmation and grouping. Check Light/Dark themes and 100/150/200% scaling at the supported window sizes.
+- All 23 library tests passed locally on Windows, including native watcher updates, the junction cycle and long Unicode path fixtures. The native desktop build passed.
+- Add music folder indexed both synthetic files and the user's 15-track Laur album, Memoria. Albums, Artists, Songs, Folders and album detail displayed stored results. Searches for Laur and Japanese text returned the expected records. Returning from one root's Browse view to Albums included the other root's album.
+- Play album started the real album through WASAPI Shared while a separate 3,000-file synthetic pass was still indexing. One native snapshot simultaneously showed Pause and 412 indexed files. Windows Core Audio reported an active session for the application process with a nonzero signal. The player reported a 44.1 kHz FLAC source and 48 kHz output on LG ULTRAGEAR, NVIDIA High Definition Audio. This establishes Windows output-session activity, not listening-confirmed sound or bit-perfect output.
+- Cancelling indexing stopped the pass after 2,937 files while the Windows playback session remained active. Removing that root required the native confirmation and kept all 3,000 source files on disk.
+- Holding a changed file with Windows `FileShare.None` produced an error naming its path and Windows error 32. A readable file still indexed, and the pass remained incomplete. Releasing the handle and rescanning completed the pass. This is evidence for a sharing violation, not NTFS permission loss.
+- A Japanese path over 330 characters indexed through the real app. A case-only file rename preserved file and album IDs. Moving a disposable root made it offline without deleting its collection; native Locate folder restored it at its new path with the same root, file and album IDs. A directory move does not establish physical drive unplug/reconnect behavior.
+- Creating an explicit album group preserved the file ID and kept its new album ID through a rescan. Reset grouping restored its original album ID. Source-content hashes stayed unchanged.
+- Light and Dark at 100% scaling displayed the real album cover and a synthetic sidecar cover. Truncated FLAC metadata produced a visible path-specific error; readable songs continued indexing. A sidecar over 9 MiB did not prevent the valid tagged file from appearing.
+
+Native verification exposed a song-row layout bug: the main button took the full row width before the Select and Locate file controls. The body now takes the remaining flexible width and can shrink around those controls. The regression `song_selection_and_recovery_controls_fit_and_accept_pointer_clicks` failed with "Select is clipped" before that change and passed afterward. It checks bounds and pointer selection at 1000, 640 and 400 logical pixels, then removes the fixture and verifies that Locate file is visible and opens its file picker at each width.
+
+The corrected native Windows build also displayed Select at both the normal window size and the minimum width. UI Automation Invoke changed the selection in each window. After removing the disposable file and rescanning, Locate file stayed visible at the minimum width and Invoke opened the Windows file picker; cancelling returned to the collection. Screenshots captured the corrected controls at 96 DPI. These native checks used the real application, separately from the headless regression.
+
+The follow-up Windows MSVC checks passed: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked` and `cargo build -p parabolica-desktop --locked`. The workspace reported 202 passed and one ignored credential child-process helper, which its parent test invokes separately. The first full run rejected an overly long fixture-path literal as a possible embedded credential; splitting the path into the existing fixture-directory and filename joins fixed that test without weakening the credential scanner. The complete workspace rerun passed. Credential Manager reported no remaining `Parabolica` test entries, the test app was closed and its disposable files were removed.
+
+## Acceptance decision and remaining limits
+
+On 2026-11-07, the user removed physical drive unplug/reconnect and manual Narrator evidence from #6's completion requirements, asking that the app handle errors gracefully when they occur. Those checks were not performed and are not reported as passed. Offline preservation, reconnect/move identity, cancellation, per-file read failures and reconciliation remain covered by the filesystem fixtures and the native checks above.
+
+The broader delivery retains its existing verification work: cross-feature recovery and data integrity in #24; complete keyboard, Narrator, DPI and localization acceptance in #25; large-library and audio reliability measurement in #26; and final integrated acceptance in #35. Actual NTFS permission loss/recovery, concurrent tag edits, native watcher overflow, physical removable-drive behavior, Narrator listening and 150/200% Windows scaling remain unverified here. Ordinary Windows watcher events and injected overflow handling have separate automated coverage. Narrow logical-width tests do not establish actual display-scaling results.
 
 The local album sequence is intentionally separate from #7's full queue, restoration, prefetch and gapless transition work. Real audio-device failures and the remaining #5 hardware checks stay with that issue. Provider accounts are not required for local indexing.

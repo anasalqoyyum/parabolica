@@ -231,6 +231,73 @@ fn indexing_error_paths_and_rescan_are_visible_in_collection_and_folder_settings
 }
 
 #[gpui_kit::test]
+fn song_selection_and_recovery_controls_fit_and_accept_pointer_clicks(cx: &mut TestAppContext) {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("Music");
+    std::fs::create_dir(&music).unwrap();
+    let song = music.join("曲.flac");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/audio/tests/fixtures")
+        .join("flac/s16_44100.flac");
+    std::fs::copy(fixture, &song).unwrap();
+    let storage = Storage::open(dir.path().join("db")).unwrap();
+    parabolica_library::index::add_folder(&storage, &music).unwrap();
+    let (window, view) = open(cx, storage);
+    cx.update(|cx| view.update(cx, |view, cx| view.show(BrowseKind::Songs, false, cx)));
+    settle(cx, &view, |view, _| {
+        view.items.len() == 1 && !view.loading && !view.status.scanning
+    });
+
+    for available in [true, false] {
+        if !available {
+            std::fs::remove_file(&song).unwrap();
+            cx.update(|cx| {
+                view.read(cx)
+                    .service
+                    .as_ref()
+                    .unwrap()
+                    .send(parabolica_library::service::Command::Rescan)
+                    .unwrap();
+            });
+            settle(cx, &view, |view, _| {
+                !view.loading && !view.status.scanning && !view.items[0].available
+            });
+        }
+        for width in [1000., 640., 400.] {
+            cx.simulate_window_resize(window, size(px(width), px(700.)));
+            cx.update_window(window, |_, window, cx| {
+                window.render_frame(cx);
+                let collection = window.find("local-collection").bounds();
+                let select = window.find("select-song-0").bounds();
+                assert!(select.right() <= collection.right(), "Select is clipped");
+                if !available {
+                    let locate = window.find("locate-song-0").bounds();
+                    assert!(
+                        locate.right() <= collection.right(),
+                        "Locate file is clipped"
+                    );
+                }
+            })
+            .unwrap();
+            click(cx, window, "select-song-0");
+            cx.update(|cx| assert_eq!(view.read(cx).checked.len(), 1));
+            click(cx, window, "select-song-0");
+            cx.update(|cx| assert!(view.read(cx).checked.is_empty()));
+            if !available {
+                click(cx, window, "locate-song-0");
+                assert!(cx.did_prompt_for_paths());
+                cx.simulate_path_prompt_response(|options| {
+                    assert!(options.files);
+                    assert!(!options.directories);
+                    None
+                });
+                cx.run_until_parked();
+            }
+        }
+    }
+}
+
+#[gpui_kit::test]
 fn top_level_pages_and_search_clear_a_previously_browsed_root(cx: &mut TestAppContext) {
     let dir = tempfile::tempdir().unwrap();
     let storage = Storage::open(dir.path().join("db")).unwrap();
