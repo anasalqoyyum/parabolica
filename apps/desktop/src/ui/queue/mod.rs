@@ -57,6 +57,7 @@ impl QueueView {
             let record = &self.state.history[self.state.history.len() - index - 1];
             let source = record.details.source.clone();
             return h_flex()
+                .id(SharedString::from(format!("history-row-{index}")))
                 .h(px(76.))
                 .gap_2()
                 .child(source_label(&record.details, cx))

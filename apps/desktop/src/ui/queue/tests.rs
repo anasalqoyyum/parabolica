@@ -51,6 +51,58 @@ pub(crate) fn settle(
 }
 
 #[gpui_kit::test]
+fn repeated_history_sources_have_independent_accessible_labels(cx: &mut TestAppContext) {
+    let (queue, _) = QueueService::start(None, Box::new(NoOutput));
+    let source = parabolica_domain::source::PlayableSource::LocalFile(
+        parabolica_domain::ids::MediaFileId::generate(),
+    );
+    let history = (0..2)
+        .map(|index| crate::controllers::queue::HistoryView {
+            record: parabolica_storage::session::ListeningRecord {
+                entry: parabolica_domain::ids::QueueEntryId::generate(),
+                source: source.clone(),
+                started_at_ms: index,
+            },
+            details: SourceView {
+                source: source.clone(),
+                title: "Repeated source".into(),
+                source_label: "Local file".into(),
+                path: None,
+                unavailable_reason: None,
+            },
+        })
+        .collect();
+    let window = cx.update(|cx| {
+        gpui_kit::init(cx);
+        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| {
+            cx.new(|cx| {
+                let mut view = QueueView::new(queue.clone(), cx);
+                view.history = true;
+                view.state = Arc::new(QueueSnapshot {
+                    history,
+                    ..QueueSnapshot::default()
+                });
+                view
+            })
+        })
+        .unwrap()
+        .0
+    });
+    cx.update_window(window, |_, window, cx| {
+        window.render_frame(cx);
+        for index in 0..2 {
+            let label = window
+                .within(SharedString::from(format!("history-row-{index}")))
+                .find("queue-source-label");
+            assert_eq!(label.role(), Some(Role::Label));
+            assert_eq!(label.value(), Some("Repeated source, Local file"));
+        }
+    })
+    .unwrap();
+    queue.shutdown();
+}
+
+#[gpui_kit::test]
 fn queue_controls_keep_duplicate_ids_move_remove_and_bound_retries(cx: &mut TestAppContext) {
     let dir = tempfile::tempdir().unwrap();
     let storage = Storage::open(dir.path().join("app.db")).unwrap();
