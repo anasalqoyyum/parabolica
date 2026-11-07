@@ -44,6 +44,8 @@ Regressions cover recovery with each new reference table, atomic bulk-like rollb
 
 Regressions force an A-to-B boundary during an edit, reject a stale request acknowledgement, verify the database has only the old A checkpoint or a coherent B-at-zero checkpoint, and run Pause/Clear/shutdown during one-frame repeat with real SQLite. The audio engine also verifies acknowledgement ordering when output-open failure leaves no current entry. All three correctness findings are fixed locally; actual Windows evidence remains separate.
 
+The verified Linux code checkpoint is `48620f4e89558baae0f6f2bd6066dc877e2daba4`. It contains both review-fix commits. Later evidence-only commits do not replace the requirement to record the final `git rev-parse HEAD` during Windows runtime verification.
+
 The single draft PR is [#46](https://github.com/anasalqoyyum/parabolica/pull/46), initially opened at `a552ccd3fc08a5bbf705dec365e59d9be79b3c04`. Its current head and Windows MSVC result are in the PR. The PR and #7 remain open and unmerged for Windows runtime acceptance.
 
 ## Windows acceptance gate
