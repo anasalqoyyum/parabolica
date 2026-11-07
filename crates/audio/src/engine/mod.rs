@@ -6,9 +6,10 @@
 //! The backend's device thread pulls them through [`StreamRenderer`], which applies app volume
 //! and converts to the device sample type. ReplayGain, EQ, crossfade and other effects are off.
 //!
-//! Every play, seek and stop starts a new generation. The worker flushes the ring buffer for it
-//! before writing, and the controller drops worker reports from older generations, so a slow
-//! seek or load cannot change a newly selected file.
+//! Every sequence replacement, seek and stop starts a new generation. The worker flushes the ring
+//! buffer before writing, and the controller drops worker reports from older generations, so a slow
+//! seek or load cannot change a newly selected file. Compatible sequence entries share the
+//! renderer, ring, output stream and converter history.
 
 mod controller;
 mod output;
@@ -20,8 +21,9 @@ mod worker;
 
 use std::path::PathBuf;
 
-use parabolica_domain::control::Versioned;
+use parabolica_domain::control::{Generation, Versioned};
 use parabolica_domain::dispatch::Coalesce;
+use parabolica_domain::format::SourceFormat;
 use parabolica_domain::ids::QueueEntryId;
 use parabolica_domain::output::{NegotiatedOutput, OutputDeviceId};
 use parabolica_domain::playback::{PlaybackSnapshot, PositionStamp};
@@ -31,6 +33,7 @@ pub use output::{NoOutput, Output, OutputError, OutputStream};
 pub use render::{OutputSample, StreamRenderer};
 
 use crate::decode::SourceInfo;
+use symphonia::core::audio::Channels;
 
 /// Engine state for the player and the signal-path inspector.
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +84,25 @@ pub enum EngineEvent {
     Underruns {
         total: u64,
     },
+    /// Sequence selection, each rendered entry boundary and completion. Never coalesced.
+    /// The initial `from: None` announces selection, including paused restoration.
+    EntryBoundary {
+        generation: Generation,
+        from: Option<QueueEntryId>,
+        to: Option<QueueEntryId>,
+        /// Absolute frame on this generation's output clock.
+        output_frame: u64,
+    },
+    /// The converter was reconfigured at this entry boundary. The device stream stays open.
+    SourceFormatChanged {
+        generation: Generation,
+        entry: QueueEntryId,
+        output_frame: u64,
+        previous_layout: Channels,
+        next_layout: Channels,
+        previous: SourceFormat,
+        next: SourceFormat,
+    },
     OutputLost {
         device: OutputDeviceId,
     },
@@ -101,7 +123,9 @@ impl Coalesce for EngineEvent {
             EngineEvent::Snapshot(_) => Some(EngineEventKey::Snapshot),
             EngineEvent::Position(_) => Some(EngineEventKey::Position),
             EngineEvent::Underruns { .. } => Some(EngineEventKey::Underruns),
-            EngineEvent::OutputLost { .. } => None,
+            EngineEvent::OutputLost { .. }
+            | EngineEvent::EntryBoundary { .. }
+            | EngineEvent::SourceFormatChanged { .. } => None,
         }
     }
 }

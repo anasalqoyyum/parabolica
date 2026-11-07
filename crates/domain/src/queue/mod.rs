@@ -7,6 +7,9 @@
 use crate::ids::QueueEntryId;
 use crate::source::PlayableSource;
 
+mod session;
+pub use session::{QueueSession, ShuffleOrder};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QueueEntry {
     pub id: QueueEntryId,
@@ -52,6 +55,8 @@ pub enum QueueCommand {
 pub enum QueueError {
     #[error("{0} is not in the queue")]
     UnknownEntry(QueueEntryId),
+    #[error("queue entry IDs must be unique and current/shuffle IDs must belong to the queue")]
+    InvalidState,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

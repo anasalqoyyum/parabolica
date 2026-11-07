@@ -273,7 +273,8 @@
         "wasapi",
         "youtube-access",
         "windows-package"
-      ]
+      ],
+      "implementation_evidence": "queue-and-session.md"
     },
     {
       "key": "wasapi",

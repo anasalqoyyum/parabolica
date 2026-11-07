@@ -18,7 +18,7 @@ use crate::ui::player::Player;
 fn open(cx: &mut TestAppContext, storage: Storage) -> (AnyWindowHandle, Entity<LibraryView>) {
     cx.update(|cx| {
         gpui_kit::init(cx);
-        super::init(Some(storage), cx);
+        super::init(Some(storage.clone()), cx);
         gpui_kit::open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds {
@@ -30,7 +30,10 @@ fn open(cx: &mut TestAppContext, storage: Storage) -> (AnyWindowHandle, Entity<L
             cx,
             |_, cx| {
                 let player = cx.new(|cx| {
-                    let (commands, events) = PlaybackCommands::with_output(Box::new(NoOutput));
+                    let (commands, events) = PlaybackCommands::with_storage_and_output(
+                        Some(storage.clone()),
+                        Box::new(NoOutput),
+                    );
                     Player::with_commands(commands, events, cx)
                 });
                 cx.new(|cx| LibraryView::new(player, cx))

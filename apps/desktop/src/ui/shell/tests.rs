@@ -18,6 +18,7 @@ fn open_shell(
     cx.update(|cx| {
         gpui_kit::init(cx);
         super::init(cx);
+        crate::ui::library::init(storage.clone(), cx);
         appearance::init(saved, storage, cx);
         let bounds = Bounds {
             origin: Point::default(),
@@ -48,6 +49,8 @@ fn tab_reaches_navigation_and_enter_opens_the_focused_page(cx: &mut TestAppConte
             "nav-albums",
             "nav-songs",
             "nav-artists",
+            "nav-queue",
+            "nav-playlists",
             "nav-replaygain",
             "nav-sources",
             "search",
@@ -93,8 +96,7 @@ fn settings_sections_and_theme_choices_are_keyboard_operable(cx: &mut TestAppCon
             "settings-shortcuts",
             "settings-about",
         ];
-        // Five sidebar items, Back, search and two top-bar buttons precede the page.
-        for _ in 0..9 {
+        for _ in 0..11 {
             window.press("tab", cx);
         }
         assert_eq!(window.find("open-appearance").focused(), Some(true));
@@ -233,8 +235,7 @@ fn shortcuts_work_after_the_focused_element_leaves_the_page(cx: &mut TestAppCont
     });
     cx.update_window(window, |_, window, cx| {
         window.render_frame(cx);
-        // Five sidebar items, Back, search, two top-bar buttons, then the first section.
-        for _ in 0..10 {
+        for _ in 0..12 {
             window.press("tab", cx);
         }
         assert_eq!(window.find("settings-sources").focused(), Some(true));

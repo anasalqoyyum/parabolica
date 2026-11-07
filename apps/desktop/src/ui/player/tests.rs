@@ -5,11 +5,8 @@ use gpui_kit::test::{TestQueryExt as _, TestWindowExt as _};
 use gpui_kit::{
     AnyWindowHandle, Bounds, Entity, Point, TestAppContext, WindowBounds, WindowOptions, px, size,
 };
-use parabolica_audio::decode::{BasicTags, EncoderDelay, SourceInfo};
 use parabolica_audio::engine::NoOutput;
-use parabolica_domain::format::{
-    ChannelCount, Codec, SampleRate, SourceFormat, SourceSampleFormat,
-};
+use parabolica_domain::format::{Codec, SampleRate};
 
 use super::*;
 
@@ -70,7 +67,7 @@ fn a_failed_output_shows_an_error_and_the_player_stays_usable(cx: &mut TestAppCo
     assert_eq!(label.as_deref(), Some(expected));
     cx.update_window(window, |_, window, _| {
         assert_eq!(window.find("now-playing").value(), Some("Nothing playing"));
-        assert_eq!(window.find("player-play").disabled(), Some(true));
+        assert_ne!(window.find("player-play").disabled(), Some(true));
         assert_ne!(window.find("open-file").disabled(), Some(true));
     })
     .unwrap();
@@ -78,22 +75,10 @@ fn a_failed_output_shows_an_error_and_the_player_stays_usable(cx: &mut TestAppCo
 
 #[test]
 fn labels_report_source_format_and_time() {
-    let mut info = SourceInfo {
-        container: "FLAC",
-        format: SourceFormat {
-            codec: Codec::Flac,
-            sample: Some(SourceSampleFormat::Int { bits: 24 }),
-            rate: SampleRate::new(96_000).unwrap(),
-            channels: ChannelCount::STEREO,
-        },
-        frames: None,
-        encoder_delay: EncoderDelay {
-            delay_frames: None,
-            padding_frames: None,
-            trimmed: false,
-        },
-        tags: BasicTags::default(),
-    };
+    let mut info = parabolica_audio::decode::Decoder::open(&fixture("flac/s24_96000.flac"))
+        .unwrap()
+        .info()
+        .clone();
     assert_eq!(format_label(&info), "FLAC · 24-bit · 96 kHz");
     info.format.codec = Codec::Mp3;
     info.format.sample = None;

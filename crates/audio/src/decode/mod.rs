@@ -15,6 +15,7 @@ use std::time::Duration;
 use parabolica_domain::format::{
     ChannelCount, Codec, PcmSample, SampleRate, SourceFormat, SourceSampleFormat,
 };
+use symphonia::core::audio::Channels;
 use symphonia::core::codecs::CodecParameters;
 use symphonia::core::codecs::audio::well_known as codecs;
 use symphonia::core::codecs::audio::{AudioCodecId, AudioDecoder, AudioDecoderOptions};
@@ -84,6 +85,7 @@ pub struct BasicTags {
 pub struct SourceInfo {
     pub container: &'static str,
     pub format: SourceFormat,
+    pub channel_layout: Channels,
     /// Playable frames, when the container states them.
     pub frames: Option<u64>,
     pub encoder_delay: EncoderDelay,
@@ -91,6 +93,10 @@ pub struct SourceInfo {
 }
 
 impl SourceInfo {
+    pub fn continuous_with(&self, next: &Self) -> bool {
+        self.format.rate == next.format.rate && self.channel_layout == next.channel_layout
+    }
+
     pub fn duration(&self) -> Option<Duration> {
         self.frames
             .map(|frames| frames_to_duration(frames, self.format.rate))
@@ -138,6 +144,9 @@ pub struct Decoder {
     /// Whether packet timestamps are exact frame indices, so gaps reveal damaged data.
     exact_timestamps: bool,
     finished: bool,
+    manual_delay: u64,
+    manual_padding: usize,
+    padding_tail: Vec<PcmSample>,
 }
 
 impl std::fmt::Debug for Decoder {
@@ -196,11 +205,26 @@ impl Decoder {
             .map_err(|error| DecodeError::UnsupportedFeature(error.to_string()))?;
         let format = source_format(&params, decoder.codec_params())?;
         let tags = read_tags(reader.as_mut());
+        let decoder_trims = trims_delay(container_id, params.codec);
+        let manual_delay = if decoder_trims {
+            0
+        } else {
+            u64::from(track.delay.unwrap_or(0))
+        };
+        let manual_padding = if decoder_trims {
+            0
+        } else {
+            track.padding.unwrap_or(0) as usize
+        };
+        if manual_padding > 65_536 {
+            return Err(DecodeError::UnsupportedFeature(
+                "encoder padding exceeds 65536 frames".to_owned(),
+            ));
+        }
         let encoder_delay = EncoderDelay {
             delay_frames: track.delay,
             padding_frames: track.padding,
-            trimmed: trims_delay(container_id, params.codec)
-                && (track.delay.is_some() || track.padding.is_some()),
+            trimmed: track.delay.is_some() || track.padding.is_some(),
         };
 
         Ok(Self {
@@ -208,6 +232,12 @@ impl Decoder {
             info: SourceInfo {
                 container,
                 format,
+                channel_layout: decoder
+                    .codec_params()
+                    .channels
+                    .clone()
+                    .or(params.channels.clone())
+                    .expect("source_format validated the channel layout"),
                 frames: track.num_frames,
                 encoder_delay,
                 tags,
@@ -217,7 +247,7 @@ impl Decoder {
             reader,
             decoder,
             position: 0,
-            skip: 0,
+            skip: manual_delay,
             segment_start: 0,
             skipped_packets: 0,
             exact_timestamps: matches!(
@@ -225,6 +255,9 @@ impl Decoder {
                 formats::FORMAT_ID_FLAC | formats::FORMAT_ID_WAVE
             ),
             finished: false,
+            manual_delay,
+            manual_padding,
+            padding_tail: Vec::new(),
         })
     }
 
@@ -268,10 +301,12 @@ impl Decoder {
             // damaged data while resynchronising.
             if self.exact_timestamps && self.skip == 0 {
                 let frame = self.timestamp_to_frame(packet.pts, self.info.format.rate);
-                if frame != self.position {
+                let expected =
+                    self.position + self.manual_delay + (self.padding_tail.len() / channels) as u64;
+                if frame != expected {
                     return Err(DecodeError::Corrupt {
                         at: self.at(),
-                        detail: format!("{} frames are missing", frame.abs_diff(self.position)),
+                        detail: format!("{} frames are missing", frame.abs_diff(expected)),
                     });
                 }
             }
@@ -285,22 +320,29 @@ impl Decoder {
                 }
                 Err(error) => return Err(self.corrupt(error)),
             };
-            if decoded.spec().channels().count() != channels {
+            if decoded.spec().channels() != &self.info.channel_layout {
                 return Err(DecodeError::UnsupportedFeature(
                     "channel layout change within the stream".to_owned(),
                 ));
             }
             let frames = decoded.frames();
             let start = out.len();
-            out.resize(start + frames * channels, 0.0);
-            decoded.copy_to_slice_interleaved::<PcmSample, _>(&mut out[start..]);
+            out.append(&mut self.padding_tail);
+            let block_start = out.len();
+            out.resize(block_start + frames * channels, 0.0);
+            decoded.copy_to_slice_interleaved::<PcmSample, _>(&mut out[block_start..]);
 
             let dropped = usize::try_from(self.skip).map_or(frames, |skip| skip.min(frames));
             if dropped > 0 {
-                out.drain(start..start + dropped * channels);
+                out.drain(block_start..block_start + dropped * channels);
                 self.skip -= dropped as u64;
             }
-            let kept = frames - dropped;
+            let available = (out.len() - start) / channels;
+            let withheld = self.manual_padding.min(available);
+            let tail_start = out.len() - withheld * channels;
+            self.padding_tail.extend_from_slice(&out[tail_start..]);
+            out.truncate(tail_start);
+            let kept = available - withheld;
             self.position += kept as u64;
             if kept > 0 {
                 return Ok(kept);
@@ -323,12 +365,13 @@ impl Decoder {
             *self = Self::open(&self.path)?;
         }
         let rate = self.info.format.rate;
+        self.padding_tail.clear();
         let seeked = self
             .reader
             .seek(
                 SeekMode::Accurate,
                 SeekTo::Timestamp {
-                    ts: self.frame_to_timestamp(frame),
+                    ts: self.frame_to_timestamp(frame.saturating_add(self.manual_delay)),
                     track_id: self.track_id,
                 },
             )
@@ -337,15 +380,16 @@ impl Decoder {
         let required = self.timestamp_to_frame(seeked.required_ts, rate);
         let actual = self.timestamp_to_frame(seeked.actual_ts, rate);
         self.skip = required.saturating_sub(actual);
-        self.segment_start = required;
         self.skipped_packets = 0;
-        self.position = required;
+        self.position = required.saturating_sub(self.manual_delay);
+        self.segment_start = self.position;
         self.finished = false;
-        Ok(required)
+        Ok(self.position)
     }
 
     fn finish(&mut self) -> Result<usize, DecodeError> {
         self.finished = true;
+        self.padding_tail.clear();
         if self.skipped_packets > 0 && self.position == self.segment_start {
             return Err(DecodeError::Corrupt {
                 at: self.at(),
@@ -420,8 +464,8 @@ fn is_supported(container: FormatId, codec: AudioCodecId) -> bool {
     }
 }
 
-/// Whether Symphonia removes the reported delay and padding for this pair. Its MP4 reader does
-/// not support gapless, so AAC in MP4 keeps its priming frames.
+/// MP3 applies packet trimming inside Symphonia. Other codecs need reported trimming here.
+/// MP4 edit lists remain unknown to its reader, so unreported AAC priming cannot be inferred.
 fn trims_delay(container: FormatId, codec: AudioCodecId) -> bool {
     container == formats::FORMAT_ID_MP3 && codec == codecs::CODEC_ID_MP3
 }
@@ -550,3 +594,6 @@ fn read_tags(reader: &mut dyn FormatReader) -> BasicTags {
     }
     tags
 }
+
+#[cfg(test)]
+mod trim_tests;
