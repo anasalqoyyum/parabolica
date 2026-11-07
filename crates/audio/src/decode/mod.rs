@@ -27,6 +27,8 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::{MetadataOptions, StandardTag};
 use symphonia::core::units::{TimeBase, Timestamp};
 
+mod mp4;
+
 /// Container/codec pairs the player decodes, as `(container, codec)`.
 pub const SUPPORTED: &[(&str, &str)] = &[
     ("FLAC", "FLAC"),
@@ -146,6 +148,7 @@ pub struct Decoder {
     finished: bool,
     manual_delay: u64,
     manual_padding: usize,
+    presentation_frames: Option<u64>,
     padding_tail: Vec<PcmSample>,
 }
 
@@ -206,10 +209,27 @@ impl Decoder {
         let format = source_format(&params, decoder.codec_params())?;
         let tags = read_tags(reader.as_mut());
         let decoder_trims = trims_delay(container_id, params.codec);
+        let presentation = if container_id == formats::FORMAT_ID_ISOMP4 {
+            mp4::presentation(path, track.id, format.rate.hz(), track.num_frames).map_err(
+                |error| {
+                    if error.kind() == std::io::ErrorKind::Unsupported {
+                        DecodeError::UnsupportedFeature(error.to_string())
+                    } else {
+                        DecodeError::Corrupt {
+                            at: Duration::ZERO,
+                            detail: error.to_string(),
+                        }
+                    }
+                },
+            )?
+        } else {
+            None
+        };
+        let delay_frames = presentation.as_ref().map(|edit| edit.delay).or(track.delay);
         let manual_delay = if decoder_trims {
             0
         } else {
-            u64::from(track.delay.unwrap_or(0))
+            u64::from(delay_frames.unwrap_or(0))
         };
         let manual_padding = if decoder_trims {
             0
@@ -222,9 +242,9 @@ impl Decoder {
             ));
         }
         let encoder_delay = EncoderDelay {
-            delay_frames: track.delay,
+            delay_frames,
             padding_frames: track.padding,
-            trimmed: track.delay.is_some() || track.padding.is_some(),
+            trimmed: delay_frames.is_some() || track.padding.is_some(),
         };
 
         Ok(Self {
@@ -238,7 +258,10 @@ impl Decoder {
                     .clone()
                     .or(params.channels.clone())
                     .expect("source_format validated the channel layout"),
-                frames: track.num_frames,
+                frames: presentation
+                    .as_ref()
+                    .map(|edit| edit.frames)
+                    .or(track.num_frames),
                 encoder_delay,
                 tags,
             },
@@ -257,6 +280,7 @@ impl Decoder {
             finished: false,
             manual_delay,
             manual_padding,
+            presentation_frames: presentation.map(|edit| edit.frames),
             padding_tail: Vec::new(),
         })
     }
@@ -277,6 +301,12 @@ impl Decoder {
         loop {
             if self.finished {
                 return Ok(0);
+            }
+            if self
+                .presentation_frames
+                .is_some_and(|end| self.position >= end)
+            {
+                return self.finish();
             }
             let packet = match self.reader.next_packet() {
                 Ok(Some(packet)) => packet,
@@ -342,7 +372,13 @@ impl Decoder {
             let tail_start = out.len() - withheld * channels;
             self.padding_tail.extend_from_slice(&out[tail_start..]);
             out.truncate(tail_start);
-            let kept = available - withheld;
+            let kept = self
+                .presentation_frames
+                .map_or(available - withheld, |end| {
+                    (available - withheld)
+                        .min(usize::try_from(end - self.position).unwrap_or(usize::MAX))
+                });
+            out.truncate(start + kept * channels);
             self.position += kept as u64;
             if kept > 0 {
                 return Ok(kept);
@@ -366,18 +402,29 @@ impl Decoder {
         }
         let rate = self.info.format.rate;
         self.padding_tail.clear();
+        let target = frame.saturating_add(self.manual_delay);
+        // AAC overlap state needs preceding packets even when seeking to audible frame zero.
+        let seek_target = if self.info.format.codec == Codec::Aac {
+            target.saturating_sub(2048)
+        } else {
+            target
+        };
         let seeked = self
             .reader
             .seek(
                 SeekMode::Accurate,
                 SeekTo::Timestamp {
-                    ts: self.frame_to_timestamp(frame.saturating_add(self.manual_delay)),
+                    ts: self.frame_to_timestamp(seek_target),
                     track_id: self.track_id,
                 },
             )
             .map_err(|error| DecodeError::Seek(error.to_string()))?;
         self.decoder.reset();
-        let required = self.timestamp_to_frame(seeked.required_ts, rate);
+        let required = if self.info.format.codec == Codec::Aac {
+            target
+        } else {
+            self.timestamp_to_frame(seeked.required_ts, rate)
+        };
         let actual = self.timestamp_to_frame(seeked.actual_ts, rate);
         self.skip = required.saturating_sub(actual);
         self.skipped_packets = 0;
@@ -465,7 +512,7 @@ fn is_supported(container: FormatId, codec: AudioCodecId) -> bool {
 }
 
 /// MP3 applies packet trimming inside Symphonia. Other codecs need reported trimming here.
-/// MP4 edit lists remain unknown to its reader, so unreported AAC priming cannot be inferred.
+/// AAC presentation edits are applied by the wrapper because the MP4 reader ignores them.
 fn trims_delay(container: FormatId, codec: AudioCodecId) -> bool {
     container == formats::FORMAT_ID_MP3 && codec == codecs::CODEC_ID_MP3
 }

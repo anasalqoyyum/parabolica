@@ -255,22 +255,24 @@ fn source_rate_and_layout_changes_are_explicit_and_keep_the_device_stream() {
 }
 
 #[test]
-fn mp3_delay_and_padding_are_removed_once_at_the_backend_boundary() {
-    let path = fixture("lossy/sine.mp3");
-    let mut expected = decoded(&path);
-    expected.extend_from_within(..);
-    let (actual, harness, _) = render_sequence(&[path.clone(), path], 44_100);
-    assert_eq!(actual.len(), 88_200 * 2);
-    assert!(actual == expected);
-    assert!(
-        harness
-            .latest
-            .unwrap()
-            .source
-            .unwrap()
-            .encoder_delay
-            .trimmed
-    );
+fn lossy_delay_and_padding_are_removed_once_at_the_backend_boundary() {
+    for name in ["lossy/sine.mp3", "lossy/sine.m4a"] {
+        let path = fixture(name);
+        let mut expected = decoded(&path);
+        expected.extend_from_within(..);
+        let (actual, harness, _) = render_sequence(&[path.clone(), path], 44_100);
+        assert_eq!(actual.len(), 88_200 * 2, "{name}");
+        assert!(actual == expected, "{name}");
+        assert!(
+            harness
+                .latest
+                .unwrap()
+                .source
+                .unwrap()
+                .encoder_delay
+                .trimmed
+        );
+    }
 }
 
 #[test]
