@@ -11,6 +11,7 @@ Read [the agent workflow](AGENT_WORKFLOW.md) before assigning work. Issue status
 ## Implementation evidence
 
 - [#6 Implement folder indexing and the local collection UI](https://github.com/anasalqoyyum/parabolica/issues/6): [implementation and verification](local-collection.md)
+- [#7 Implement queues, playlists, history and session restoration](https://github.com/anasalqoyyum/parabolica/issues/7): [implementation and verification](queue-and-session.md)
 
 ## Dependencies and parallel work
 

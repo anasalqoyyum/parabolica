@@ -12,9 +12,11 @@ mod error;
 pub mod jobs;
 pub mod library;
 mod migrate;
+pub mod playlists;
 pub mod preferences;
 pub mod queue;
 pub mod recovery;
+pub mod session;
 pub mod sources;
 
 pub use database::Storage;

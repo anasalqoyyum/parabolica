@@ -7,6 +7,8 @@ pub enum Page {
     Albums,
     Songs,
     Artists,
+    Queue,
+    Playlists,
     ReplayGain,
     Settings(SettingsSection),
 }
@@ -29,6 +31,8 @@ impl Page {
             Self::Albums => "Albums",
             Self::Songs => "Songs",
             Self::Artists => "Artists",
+            Self::Queue => "Queue",
+            Self::Playlists => "Playlists",
             Self::ReplayGain => "ReplayGain",
             Self::Settings(section) => section.title(),
         }
@@ -96,6 +100,18 @@ pub const NAV_GROUPS: [NavGroup; 2] = [
                 label: "Artists",
                 icon: IconName::User,
                 page: Page::Artists,
+            },
+            NavEntry {
+                id: "nav-queue",
+                label: "Queue",
+                icon: IconName::ListMusic,
+                page: Page::Queue,
+            },
+            NavEntry {
+                id: "nav-playlists",
+                label: "Playlists",
+                icon: IconName::Heart,
+                page: Page::Playlists,
             },
         ],
     },

@@ -7,14 +7,16 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{ActiveTheme as _, Icon, StyledExt as _, ThemeStyled as _, h_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{App, ClickEvent, FocusHandle, Role, TestSupportExt as _, Window, div, px};
+use gpui_kit::{
+    App, ClickEvent, FocusHandle, Role, SharedString, TestSupportExt as _, Window, div, px,
+};
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
 #[derive(IntoElement)]
 pub struct NavItem {
-    id: &'static str,
-    label: &'static str,
+    id: SharedString,
+    label: SharedString,
     icon: Option<IconName>,
     current: bool,
     collapsed: bool,
@@ -23,14 +25,14 @@ pub struct NavItem {
 
 impl NavItem {
     pub fn new(
-        id: &'static str,
-        label: &'static str,
+        id: impl Into<SharedString>,
+        label: impl Into<SharedString>,
         current: bool,
         on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
-            id,
-            label,
+            id: id.into(),
+            label: label.into(),
             icon: None,
             current,
             collapsed: false,
@@ -53,7 +55,9 @@ impl NavItem {
 impl RenderOnce for NavItem {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let focus_handle: FocusHandle = window
-            .use_keyed_state(self.id, cx, |_, cx| cx.focus_handle().tab_stop(true))
+            .use_keyed_state(self.id.clone(), cx, |_, cx| {
+                cx.focus_handle().tab_stop(true)
+            })
             .read(cx)
             .clone();
         let focused = focus_handle.is_focused(window);
@@ -68,7 +72,7 @@ impl RenderOnce for NavItem {
             .id(self.id)
             .test_support()
             .role(Role::ListItem)
-            .aria_label(self.label)
+            .aria_label(self.label.clone())
             .aria_selected(self.current)
             .track_focus(&focus_handle)
             .h(px(40.))
@@ -86,8 +90,8 @@ impl RenderOnce for NavItem {
             .when(focused, |this| this.focus_ring_style(window, cx))
             .when_some(self.icon, |this, icon| this.child(Icon::new(icon).size_4()))
             .when(self.collapsed, |this| {
-                let label = self.label;
-                this.tooltip(move |window, cx| Tooltip::new(label).build(window, cx))
+                let label = self.label.clone();
+                this.tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
             })
             .when(!self.collapsed, |this| {
                 this.child(

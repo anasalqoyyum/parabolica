@@ -264,38 +264,40 @@ fn mp3_decodes_gaplessly_and_seeks() {
 }
 
 #[test]
-fn aac_in_mp4_decodes_and_seeks() {
-    let references = references();
-    let reference = &references["lossy/sine.m4a"];
+fn aac_edit_list_defines_the_playable_timeline_and_seeks() {
     let mut decoder = Decoder::open(&fixture("lossy/sine.m4a")).unwrap();
     let info = decoder.info().clone();
     assert_eq!(info.container, "MP4");
     assert_eq!(info.format.codec, Codec::Aac);
-    // Symphonia's MP4 reader ignores the edit list, so the delay is unknown and the encoder's
-    // 1024 priming frames stay in the output. FFmpeg removes them.
     assert_eq!(
         info.encoder_delay,
         EncoderDelay {
-            delay_frames: None,
+            delay_frames: Some(1024),
             padding_frames: None,
-            trimmed: false
+            trimmed: true
         }
     );
-    let lag = 1024;
+    assert_eq!(info.frames, Some(44_100));
 
     let full = decode_all(&mut decoder);
     let frames = full.len() / 2;
-    assert_eq!(
-        frames as u64,
-        reference["ffmpeg_frames"].as_u64().unwrap() + lag as u64
-    );
-    assert_aligned(&full, lag);
+    assert_eq!(frames, 44_100);
+    assert_aligned(&full, 0);
+
+    for target in [0, 1, 1023, 1024, 44_099, 44_100] {
+        assert_eq!(decoder.seek(target).unwrap(), target);
+        let rest = decode_all(&mut decoder);
+        assert_eq!(rest.len() / 2, frames - target as usize);
+        if target < 1025 {
+            assert!(rest == full[target as usize * 2..], "AAC seek {target}");
+        }
+    }
 
     let target = 22_050;
     assert_eq!(decoder.seek(target).unwrap(), target);
     let rest = decode_all(&mut decoder);
     assert_eq!(rest.len() / 2, frames - target as usize);
-    assert!(snr_db(&rest[4096..], target as usize + 2048 - lag, 0, 10_000) > 25.0);
+    assert!(snr_db(&rest, target as usize, 0, 10_000) > 25.0);
 }
 
 #[test]

@@ -28,7 +28,9 @@ use parabolica_storage::{
     library::LibraryRoot,
 };
 
+use crate::controllers::queue::EnqueueMode;
 use crate::ui::player::Player;
+use parabolica_domain::source::PlayableSource;
 
 const PAGE_SIZE: usize = 96;
 struct Library {
@@ -39,6 +41,11 @@ impl Global for Library {}
 pub fn init(storage: Option<Storage>, cx: &mut App) {
     let service = storage.clone().map(LibraryService::start).map(Arc::new);
     cx.set_global(Library { storage, service });
+}
+
+pub(crate) fn storage(cx: &App) -> Option<Storage> {
+    cx.try_global::<Library>()
+        .and_then(|library| library.storage.clone())
 }
 
 pub struct LibraryView {
@@ -344,6 +351,10 @@ impl LibraryView {
         self.refresh(false, cx);
     }
     fn play(&mut self, file: Option<MediaFileId>, cx: &mut Context<Self>) {
+        self.enqueue(file, EnqueueMode::Now, cx);
+    }
+
+    fn enqueue(&mut self, file: Option<MediaFileId>, mode: EnqueueMode, cx: &mut Context<Self>) {
         let Some(storage) = self.storage.clone() else {
             return;
         };
@@ -359,25 +370,51 @@ impl LibraryView {
         query.limit = 256;
         query.sort = Sort::TrackOrder;
         let player = self.player.clone();
-        self.playback_request=Some(cx.spawn(async move|this,cx|{
-            let result=cx.background_spawn(async move{
-                let mut files=Vec::new();
-                if let Some(file)=file {files.push((file,storage.resolve_local_file(file)?));}
-                else {
-                    loop {
-                        let rows=storage.browse_collection(BrowseKind::Songs,query.clone())?;let count=rows.len();
-                        for item in rows {if let ItemId::Song(file)=item.id {files.push((file,storage.resolve_local_file(file)?));}}
-                        if count<256{break;}query.offset+=count;
+        self.playback_request = Some(cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_spawn(async move {
+                    let mut sources = Vec::new();
+                    if let Some(file) = file {
+                        sources.push(PlayableSource::LocalFile(file));
+                    } else {
+                        loop {
+                            let rows =
+                                storage.browse_collection(BrowseKind::Songs, query.clone())?;
+                            let count = rows.len();
+                            for item in rows {
+                                if let ItemId::Song(file) = item.id {
+                                    sources.push(PlayableSource::LocalFile(file));
+                                }
+                            }
+                            if count < 256 {
+                                break;
+                            }
+                            query.offset += count;
+                        }
                     }
+                    Ok::<_, parabolica_storage::StorageError>(sources)
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(sources) if !sources.is_empty() => {
+                    player.read(cx).enqueue(sources, mode);
                 }
-                Ok::<_,parabolica_storage::StorageError>(files)
-            }).await;
-            let _=this.update(cx,|this,cx|match result{
-                Ok(files) if !files.is_empty()=>player.update(cx,|player,cx|player.play_indexed(files,cx)),
-                Ok(_)=>{this.error=Some("No playable songs in this selection".into());cx.notify();}
-                Err(e)=>{this.error=Some(format!("Can't play selection: {e}. Locate the missing file or reconnect its folder."));cx.notify();}
+                Ok(_) => {
+                    this.error = Some("No songs in this selection".into());
+                    cx.notify();
+                }
+                Err(error) => {
+                    this.error = Some(format!("Can't queue selection: {error}"));
+                    cx.notify();
+                }
             });
         }));
+    }
+
+    fn selected_sources(&self) -> Vec<PlayableSource> {
+        let mut files: Vec<_> = self.checked.iter().copied().collect();
+        files.sort_by_key(|id| id.to_bytes());
+        files.into_iter().map(PlayableSource::LocalFile).collect()
     }
     fn recover(&mut self, file: MediaFileId, cx: &mut Context<Self>) {
         let prompt = cx.prompt_for_paths(PathPromptOptions {
@@ -519,6 +556,42 @@ impl LibraryView {
                 format!("{} selected", self.checked.len()),
                 cx,
             ))
+            .child(
+                Button::new("selection-next")
+                    .label("Play next")
+                    .disabled(self.checked.is_empty())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.player
+                            .read(cx)
+                            .enqueue(this.selected_sources(), EnqueueMode::Next)
+                    })),
+            )
+            .child(
+                Button::new("selection-later")
+                    .label("Play later")
+                    .disabled(self.checked.is_empty())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.player
+                            .read(cx)
+                            .enqueue(this.selected_sources(), EnqueueMode::Later)
+                    })),
+            )
+            .child(
+                Button::new("selection-like")
+                    .label("Like in app")
+                    .disabled(self.checked.is_empty())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if !this
+                            .player
+                            .read(cx)
+                            .queue()
+                            .set_local_likes(this.selected_sources(), true)
+                        {
+                            this.error = Some("Queue worker is busy; like selection again".into());
+                            cx.notify();
+                        }
+                    })),
+            )
             .when_some(self.grouping_target.clone(), |row, (album, title)| {
                 row.child(
                     Button::new("group-selected")
@@ -776,14 +849,29 @@ impl Render for LibraryView {
                                         .child(item.subtitle.clone()),
                                 )
                                 .when(album, |column| {
-                                    column.child(
-                                        Button::new("play-album")
-                                            .primary()
-                                            .label("Play album")
-                                            .on_click(
-                                                cx.listener(|this, _, _, cx| this.play(None, cx)),
+                                    column
+                                        .child(
+                                            Button::new("play-album")
+                                                .primary()
+                                                .label("Play album")
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.play(None, cx)
+                                                })),
+                                        )
+                                        .child(
+                                            Button::new("album-next").label("Play next").on_click(
+                                                cx.listener(|this, _, _, cx| {
+                                                    this.enqueue(None, EnqueueMode::Next, cx)
+                                                }),
                                             ),
-                                    )
+                                        )
+                                        .child(
+                                            Button::new("album-later")
+                                                .label("Play later")
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.enqueue(None, EnqueueMode::Later, cx)
+                                                })),
+                                        )
                                 }),
                         ),
                 )

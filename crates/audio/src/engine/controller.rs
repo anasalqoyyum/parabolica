@@ -1,26 +1,29 @@
 //! The playback controller thread: owns transport state, the output stream and the worker.
 
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use parabolica_domain::control::{GenerationCounter, SnapshotSequencer, Tagged};
+use crate::transitions::{PlaybackSequence, SequenceError};
+use parabolica_domain::control::{Generation, GenerationCounter, SnapshotSequencer, Tagged};
 use parabolica_domain::format::{OutputFormat, PcmFormat, PcmSample, SampleRate};
 use parabolica_domain::gain::{GainSelection, Volume};
 use parabolica_domain::ids::QueueEntryId;
 use parabolica_domain::output::{NegotiatedOutput, PlaybackRoute};
 use parabolica_domain::playback::{PlaybackSnapshot, PositionStamp, TransportState};
+use parabolica_domain::queue::RepeatMode;
 use parabolica_domain::signal_path::{ProcessingState, SignalPath};
 use parabolica_domain::source::{FrameSpan, ResolvedSource};
 
 use super::output::{Output, OutputError, OutputStream};
 use super::render::{StreamRenderer, StreamShared};
 use super::worker::{WorkerCommand, WorkerHandle, WorkerReport};
-use super::{EngineEvent, EngineSnapshot, PlaybackError, PlaybackFailure};
-use crate::decode::{SourceInfo, duration_to_frames};
+use super::{EngineEvent, EngineRequestId, EngineSnapshot, PlaybackError, PlaybackFailure};
+use crate::decode::{SourceInfo, frames_to_duration};
 
 /// Ring buffer length between the decoder worker and the device callback.
 const RING_SECONDS: f64 = 0.5;
@@ -40,10 +43,18 @@ pub(crate) enum Command {
         entry: QueueEntryId,
         source: ResolvedSource,
     },
+    StartSequence {
+        sequence: PlaybackSequence,
+        index: usize,
+        position: Duration,
+        paused: bool,
+    },
+    UpdateSequence(PlaybackSequence),
     Pause,
     Resume,
     Stop,
     Seek {
+        generation: Option<Generation>,
         entry: QueueEntryId,
         position: Duration,
     },
@@ -53,6 +64,7 @@ pub(crate) enum Command {
 #[derive(Debug)]
 pub(crate) enum Message {
     Command(Command),
+    Synchronize(EngineRequestId),
     Worker(Tagged<WorkerReport>),
     Shutdown,
 }
@@ -63,6 +75,7 @@ pub(crate) enum Message {
 pub struct PlaybackEngine {
     inbox: Sender<Message>,
     thread: Option<JoinHandle<()>>,
+    next_request: AtomicU64,
 }
 
 impl PlaybackEngine {
@@ -78,6 +91,7 @@ impl PlaybackEngine {
             Self {
                 inbox,
                 thread: Some(thread),
+                next_request: AtomicU64::new(1),
             },
             receiver,
         )
@@ -87,9 +101,42 @@ impl PlaybackEngine {
         let _ = self.inbox.send(Message::Command(command));
     }
 
+    /// The acknowledgement follows earlier boundary events on the same event channel.
+    pub fn synchronize(&self) -> EngineRequestId {
+        let request = EngineRequestId(self.next_request.fetch_add(1, Ordering::Relaxed));
+        let _ = self.inbox.send(Message::Synchronize(request));
+        request
+    }
+
     /// Load `source` as `entry` and play it from the start.
     pub fn play(&self, entry: QueueEntryId, source: ResolvedSource) {
         self.send(Command::Play { entry, source });
+    }
+
+    /// Start a deterministic sequence at `selected`. A restored session passes `paused = true`.
+    /// Shuffle order must already be resolved by the caller. IDs must be unique in the sequence.
+    pub fn start_sequence(
+        &self,
+        sequence: PlaybackSequence,
+        selected: QueueEntryId,
+        position: Duration,
+        paused: bool,
+    ) -> Result<(), SequenceError> {
+        let index = sequence.index(selected)?;
+        self.send(Command::StartSequence {
+            sequence,
+            index,
+            position,
+            paused,
+        });
+        Ok(())
+    }
+
+    /// Replace the order and repeat policy, keeping the current position and pause state.
+    /// Buffered upcoming audio is cancelled and rebuffered in a new generation. If the current
+    /// entry was removed, its source finishes as a detached entry before the new sequence begins.
+    pub fn update_sequence(&self, sequence: PlaybackSequence) {
+        self.send(Command::UpdateSequence(sequence));
     }
 
     pub fn pause(&self) {
@@ -107,7 +154,25 @@ impl PlaybackEngine {
 
     /// Seek within `entry`. Ignored if another entry has been selected since.
     pub fn seek(&self, entry: QueueEntryId, position: Duration) {
-        self.send(Command::Seek { entry, position });
+        self.send(Command::Seek {
+            generation: None,
+            entry,
+            position,
+        });
+    }
+
+    /// A delayed seek may also name the snapshot generation it was requested from.
+    pub fn seek_in_generation(
+        &self,
+        generation: Generation,
+        entry: QueueEntryId,
+        position: Duration,
+    ) {
+        self.send(Command::Seek {
+            generation: Some(generation),
+            entry,
+            position,
+        });
     }
 
     pub fn set_volume(&self, volume: Volume) {
@@ -137,12 +202,19 @@ struct Current {
     source: ResolvedSource,
     path: PathBuf,
     info: Option<SourceInfo>,
-    /// Whether the worker holds an open decoder for this entry, so a seek can go to it.
-    decoder_ready: bool,
     /// Source frame at which the current epoch started.
     base_frame: u64,
     primed: bool,
     ended: bool,
+    output_start: u64,
+    requested_position: Duration,
+}
+
+struct Boundary {
+    output_frame: u64,
+    index: usize,
+    start: u64,
+    info: Result<Box<SourceInfo>, PlaybackError>,
 }
 
 struct Controller {
@@ -155,6 +227,10 @@ struct Controller {
     transport: TransportState,
     want_playing: bool,
     current: Option<Current>,
+    sequence: Option<PlaybackSequence>,
+    boundaries: VecDeque<Boundary>,
+    announce_start: bool,
+    sequence_end: Option<u64>,
     volume: Volume,
     failure: Option<PlaybackFailure>,
     last_underruns: u64,
@@ -175,6 +251,10 @@ impl Controller {
             transport: TransportState::Stopped,
             want_playing: false,
             current: None,
+            sequence: None,
+            boundaries: VecDeque::new(),
+            announce_start: false,
+            sequence_end: None,
             volume: Volume::UNITY,
             failure: None,
             last_underruns: 0,
@@ -189,6 +269,12 @@ impl Controller {
         loop {
             match messages.recv_timeout(TICK) {
                 Ok(Message::Command(command)) => self.command(command),
+                Ok(Message::Synchronize(request)) => {
+                    let _ = self.events.send(EngineEvent::Synchronized {
+                        request,
+                        snapshot: Box::new(self.snapshot()),
+                    });
+                }
                 Ok(Message::Worker(report)) => {
                     if let Some(report) = report.accept(&self.generations) {
                         self.worker(report);
@@ -200,12 +286,27 @@ impl Controller {
             self.tick();
         }
         self.generations.advance();
+        self.boundaries.clear();
         self.stream = None;
     }
 
     fn command(&mut self, command: Command) {
+        self.apply_boundaries();
         match command {
-            Command::Play { entry, source } => self.load(entry, source, 0),
+            Command::Play { entry, source } => {
+                let sequence = PlaybackSequence::new(vec![(entry, source)], RepeatMode::Off)
+                    .expect("one entry is a valid sequence");
+                self.load_sequence(sequence, 0, Duration::ZERO, false, true);
+            }
+            Command::StartSequence {
+                sequence,
+                index,
+                position,
+                paused,
+            } => {
+                self.load_sequence(sequence, index, position, paused, true);
+            }
+            Command::UpdateSequence(sequence) => self.update_sequence(sequence),
             Command::Pause => {
                 self.want_playing = false;
                 if matches!(
@@ -219,10 +320,19 @@ impl Controller {
             }
             Command::Resume => self.resume(),
             Command::Stop => {
+                self.failure = None;
                 self.stop_playback();
                 self.publish();
             }
-            Command::Seek { entry, position } => self.seek(entry, position),
+            Command::Seek {
+                generation,
+                entry,
+                position,
+            } => {
+                if generation.is_none_or(|generation| self.generations.is_current(generation)) {
+                    self.seek(entry, position);
+                }
+            }
             Command::SetVolume(volume) => {
                 self.volume = volume;
                 if let Some(stream) = &self.stream {
@@ -244,13 +354,22 @@ impl Controller {
             stream.worker.send(WorkerCommand::Stop { generation });
         }
         self.current = None;
+        self.sequence = None;
+        self.boundaries.clear();
         self.want_playing = false;
         self.transport = TransportState::Stopped;
     }
 
-    /// Load `source` and play it from `start`, a source frame.
-    fn load(&mut self, entry: QueueEntryId, source: ResolvedSource, start: u64) {
+    fn load_sequence(
+        &mut self,
+        sequence: PlaybackSequence,
+        index: usize,
+        position: Duration,
+        paused: bool,
+        announce_start: bool,
+    ) {
         self.failure = None;
+        let (entry, source) = sequence.entries[index].clone();
         let path = match &source {
             ResolvedSource::Local {
                 path,
@@ -273,26 +392,53 @@ impl Controller {
         }
         let generation = self.generations.advance();
         self.set_playing(false);
+        self.boundaries.clear();
+        self.sequence_end = None;
+        self.announce_start = announce_start;
+        self.sequence = Some(sequence.clone());
         self.current = Some(Current {
             entry,
             source,
-            path: path.clone(),
+            path,
             info: None,
-            decoder_ready: false,
-            base_frame: start,
+            base_frame: 0,
             primed: false,
             ended: false,
+            output_start: 0,
+            requested_position: position,
         });
-        self.want_playing = true;
-        self.transport = TransportState::Loading;
+        self.want_playing = !paused;
+        self.transport = if paused {
+            TransportState::Paused
+        } else {
+            TransportState::Loading
+        };
         if let Some(stream) = &self.stream {
             stream.worker.send(WorkerCommand::Load {
                 generation,
-                path,
-                start,
+                sequence,
+                index,
+                position,
             });
         }
         self.publish();
+    }
+
+    fn update_sequence(&mut self, mut sequence: PlaybackSequence) {
+        let Some(current) = &self.current else {
+            return;
+        };
+        if sequence.index(current.entry).is_err() {
+            sequence.prepend_detached(current.entry, current.source.clone());
+        }
+        let index = sequence
+            .index(current.entry)
+            .expect("current entry is retained");
+        let position = self.position().map_or(current.requested_position, |stamp| {
+            frames_to_duration(stamp.frame, stamp.rate)
+        });
+        let paused = !self.want_playing;
+        self.load_sequence(sequence, index, position, paused, false);
     }
 
     fn resume(&mut self) {
@@ -305,116 +451,224 @@ impl Controller {
         ) {
             return;
         }
-        let (entry, source) = (current.entry, current.source.clone());
-        let start = if current.ended { 0 } else { current.base_frame };
-        let worker_ready = current.decoder_ready && self.stream.is_some();
-        let (primed, ended) = (current.primed, current.ended);
-        self.want_playing = true;
-        if self.transport == TransportState::Paused && worker_ready {
-            if primed {
+        if self.transport == TransportState::Paused
+            && self.failure.is_none()
+            && self.stream.is_some()
+        {
+            self.want_playing = true;
+            if current.primed {
                 self.set_playing(true);
                 self.transport = TransportState::Playing;
             } else {
-                // Paused while loading or seeking; Primed starts playback.
                 self.transport = TransportState::Loading;
             }
             self.publish();
-        } else if ended && worker_ready {
-            self.seek(entry, Duration::ZERO);
-        } else {
-            // The stream closed while idle or was lost, or the worker dropped the file after a
-            // failure. Open it again at the saved position.
-            self.load(entry, source, start);
+            return;
         }
+        let Some(sequence) = self.sequence.clone() else {
+            return;
+        };
+        let index = sequence
+            .index(current.entry)
+            .expect("current entry belongs to the sequence");
+        let position = if current.ended {
+            Duration::ZERO
+        } else {
+            current
+                .info
+                .as_ref()
+                .map_or(current.requested_position, |info| {
+                    frames_to_duration(current.base_frame, info.format.rate)
+                })
+        };
+        self.load_sequence(sequence, index, position, false, false);
     }
 
     fn seek(&mut self, entry: QueueEntryId, position: Duration) {
         let Some(current) = &mut self.current else {
             return;
         };
-        let Some(info) = &current.info else {
-            return;
-        };
         if current.entry != entry {
             return;
         }
-        let mut frame = duration_to_frames(position, info.format.rate);
-        if let Some(total) = info.frames {
-            frame = frame.min(total);
-        }
-        let Some(stream) = self.stream.as_ref().filter(|_| current.decoder_ready) else {
-            // No decoder to seek: the stream closed while idle or the file failed. Remember the
-            // position for the next resume, which opens the file again.
-            current.base_frame = frame;
-            current.ended = false;
-            self.publish();
+        let Some(sequence) = self.sequence.clone() else {
             return;
         };
-        let generation = self.generations.advance();
-        stream.shared.playing.store(false, Ordering::Release);
-        current.base_frame = frame;
-        current.primed = false;
-        current.ended = false;
-        stream
-            .worker
-            .send(WorkerCommand::Seek { generation, frame });
-        self.transport = if self.want_playing {
-            TransportState::Loading
-        } else {
-            TransportState::Paused
-        };
-        self.publish();
+        let index = sequence
+            .index(entry)
+            .expect("current entry belongs to the sequence");
+        let paused = !self.want_playing;
+        self.load_sequence(sequence, index, position, paused, false);
     }
 
     fn worker(&mut self, report: WorkerReport) {
-        let Some(current) = &mut self.current else {
+        if self.current.is_none() {
             return;
-        };
+        }
         match report {
-            WorkerReport::Loaded(info) => {
-                current.info = Some(*info);
-                current.decoder_ready = true;
+            WorkerReport::Boundary {
+                output_frame,
+                index,
+                start,
+                info,
+            } => {
+                self.boundaries.push_back(Boundary {
+                    output_frame,
+                    index,
+                    start,
+                    info,
+                });
+                self.apply_boundaries();
             }
-            WorkerReport::Seeked { frame } => {
-                current.base_frame = frame;
+            WorkerReport::Finished { output_frame } => {
+                self.sequence_end = Some(output_frame);
             }
             WorkerReport::Primed => {
-                current.primed = true;
+                if self.failure.is_some() {
+                    return;
+                }
+                if let Some(current) = &mut self.current {
+                    current.primed = true;
+                }
                 if self.want_playing {
                     self.set_playing(true);
                     self.transport = TransportState::Playing;
                 } else {
                     self.transport = TransportState::Paused;
                 }
+                self.publish();
             }
             WorkerReport::Failed(error) => {
-                // The worker dropped the file. A resume reopens it: from the start after a file
-                // error, or where playback stopped after an output stall.
-                current.decoder_ready = false;
-                current.primed = false;
-                if let (PlaybackError::Output(_), Some(stream), Some(info)) =
-                    (&error, &self.stream, &current.info)
-                {
-                    current.base_frame += convert_frames(
-                        stream.shared.played_in(self.generations.current().get()),
-                        stream.negotiated.format.rate,
-                        info.format.rate,
-                    );
-                } else {
-                    current.base_frame = 0;
+                if let Some(current) = &mut self.current {
+                    current.primed = false;
+                    if let (PlaybackError::Output(_), Some(stream), Some(info)) =
+                        (&error, &self.stream, &current.info)
+                    {
+                        current.base_frame += convert_frames(
+                            stream
+                                .shared
+                                .played_in(self.generations.current().get())
+                                .saturating_sub(current.output_start),
+                            stream.negotiated.format.rate,
+                            info.format.rate,
+                        );
+                    } else {
+                        current.base_frame = 0;
+                    }
                 }
-                // Leave the failed epoch so the displayed position no longer counts its frames.
+                self.boundaries.clear();
                 self.generations.advance();
-                let (entry, path) = (current.entry, current.path.clone());
                 self.set_playing(false);
                 self.want_playing = false;
-                return self.fail(Some(entry), Some(path), error);
+                let current = self.current.as_ref().expect("current was checked");
+                self.fail(Some(current.entry), Some(current.path.clone()), error);
             }
         }
-        self.publish();
+    }
+
+    fn apply_boundaries(&mut self) {
+        let Some(stream) = &self.stream else {
+            return;
+        };
+        let generation = self.generations.current();
+        let played = stream.shared.played_in(generation.get());
+        let mut changed = false;
+        while self
+            .boundaries
+            .front()
+            .is_some_and(|boundary| boundary.output_frame <= played)
+        {
+            let initial = self
+                .current
+                .as_ref()
+                .is_none_or(|current| current.info.is_none());
+            if !initial && played == 0 && self.transport != TransportState::Playing {
+                break;
+            }
+            let boundary = self.boundaries.pop_front().expect("front was checked");
+            let Some(sequence) = &self.sequence else {
+                break;
+            };
+            let (entry, source) = sequence.entries[boundary.index].clone();
+            let path = match &source {
+                ResolvedSource::Local { path, .. } => path.clone(),
+                _ => PathBuf::new(),
+            };
+            let info = match boundary.info {
+                Ok(info) => *info,
+                Err(error) => {
+                    self.set_playing(false);
+                    self.want_playing = false;
+                    self.boundaries.clear();
+                    if let Some(current) = &mut self.current {
+                        current.primed = false;
+                    }
+                    let _ = self.events.send(EngineEvent::EntryBoundary {
+                        generation,
+                        from: self.current.as_ref().map(|current| current.entry),
+                        to: None,
+                        output_frame: boundary.output_frame,
+                    });
+                    self.fail(
+                        Some(entry),
+                        (!path.as_os_str().is_empty()).then_some(path),
+                        error,
+                    );
+                    return;
+                }
+            };
+            let previous = self
+                .current
+                .as_ref()
+                .filter(|_| !initial)
+                .map(|current| current.entry);
+            if let Some(previous_info) = self
+                .current
+                .as_ref()
+                .and_then(|current| current.info.as_ref())
+                && !previous_info.continuous_with(&info)
+            {
+                let _ = self.events.send(EngineEvent::SourceFormatChanged {
+                    generation,
+                    entry,
+                    output_frame: boundary.output_frame,
+                    previous_layout: previous_info.channel_layout.clone(),
+                    next_layout: info.channel_layout.clone(),
+                    previous: previous_info.format.clone(),
+                    next: info.format.clone(),
+                });
+            }
+            let primed = self.current.as_ref().is_some_and(|current| current.primed);
+            let info_rate = info.format.rate;
+            self.current = Some(Current {
+                entry,
+                source,
+                path,
+                info: Some(info),
+                base_frame: boundary.start,
+                primed,
+                ended: false,
+                output_start: boundary.output_frame,
+                requested_position: frames_to_duration(boundary.start, info_rate),
+            });
+            if !initial || self.announce_start {
+                let _ = self.events.send(EngineEvent::EntryBoundary {
+                    generation,
+                    from: previous,
+                    to: Some(entry),
+                    output_frame: boundary.output_frame,
+                });
+            }
+            self.announce_start = false;
+            changed = true;
+        }
+        if changed {
+            self.publish();
+        }
     }
 
     fn tick(&mut self) {
+        self.apply_boundaries();
         let Some(stream) = &self.stream else {
             return;
         };
@@ -440,9 +694,18 @@ impl Controller {
         if let Some(current) = &mut self.current
             && self.transport == TransportState::Playing
             && current.primed
+            && self
+                .sequence_end
+                .is_some_and(|end| stream.shared.played_in(generation) >= end)
             && drained
         {
             current.ended = true;
+            let _ = self.events.send(EngineEvent::EntryBoundary {
+                generation: self.generations.current(),
+                from: Some(current.entry),
+                to: None,
+                output_frame: stream.shared.played_in(generation),
+            });
             self.want_playing = false;
             stream.shared.playing.store(false, Ordering::Release);
             self.transport = TransportState::Stopped;
@@ -493,7 +756,10 @@ impl Controller {
             && let Some(info) = &current.info
         {
             let played = convert_frames(
-                stream.shared.played_in(generation),
+                stream
+                    .shared
+                    .played_in(generation)
+                    .saturating_sub(current.output_start),
                 stream.negotiated.format.rate,
                 info.format.rate,
             );
@@ -503,10 +769,8 @@ impl Controller {
             }
             current.primed = false;
         }
-        if let Some(current) = &mut self.current {
-            current.decoder_ready = false;
-        }
         self.generations.advance();
+        self.boundaries.clear();
         self.stream = None;
         self.idle_since = None;
         self.set_playing(false);
@@ -566,7 +830,10 @@ impl Controller {
         let (rate, played) = match &self.stream {
             Some(stream) => (
                 stream.negotiated.format.rate,
-                stream.shared.played_in(self.generations.current().get()),
+                stream
+                    .shared
+                    .played_in(self.generations.current().get())
+                    .saturating_sub(current.output_start),
             ),
             None => (source_rate, 0),
         };
@@ -583,7 +850,7 @@ impl Controller {
         })
     }
 
-    fn publish(&mut self) {
+    fn snapshot(&self) -> EngineSnapshot {
         let route = self.route();
         let source_format = self
             .current
@@ -612,7 +879,7 @@ impl Controller {
             gain: self.current.as_ref().map(|_| GainSelection::Bypassed),
             volume: self.volume,
         };
-        let snapshot = EngineSnapshot {
+        EngineSnapshot {
             playback,
             path: self.current.as_ref().map(|current| current.path.clone()),
             source: self
@@ -622,7 +889,11 @@ impl Controller {
             output: self.stream.as_ref().map(|stream| stream.negotiated.clone()),
             underruns: self.last_underruns,
             failure: self.failure.clone(),
-        };
+        }
+    }
+
+    fn publish(&mut self) {
+        let snapshot = self.snapshot();
         self.last_position = Instant::now();
         self.last_position_frame = snapshot.playback.position.map(|position| position.frame);
         let _ = self.events.send(EngineEvent::Snapshot(Box::new(

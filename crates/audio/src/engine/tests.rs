@@ -19,7 +19,12 @@ use parabolica_domain::source::ResolvedSource;
 
 use super::*;
 use crate::decode::Decoder;
-use crate::realtime::RealtimeRender;
+use crate::realtime::{RealtimeRender, RenderOutcome};
+use crate::transitions::PlaybackSequence;
+use parabolica_domain::queue::RepeatMode;
+
+#[path = "sequence_tests.rs"]
+mod sequence_tests;
 
 const BLOCK_FRAMES: usize = 256;
 
@@ -27,6 +32,7 @@ const BLOCK_FRAMES: usize = 256;
 #[derive(Debug, Default)]
 struct Captured {
     blocks: Vec<(u64, Vec<f32>)>,
+    callbacks: Vec<(u64, Vec<f32>, usize, RenderOutcome)>,
 }
 
 impl Captured {
@@ -131,7 +137,8 @@ impl OutputStream for CaptureStream {
             while !stop.load(Ordering::Acquire) && capture.lost.lock().unwrap().is_none() {
                 let epoch_before = shared.epoch_ack.load(Ordering::Acquire);
                 let played_before = shared.played.load(Ordering::Acquire);
-                renderer.render(&mut block[..], 2);
+                let playing = shared.playing.load(Ordering::Acquire);
+                let outcome = renderer.render(&mut block[..], 2);
                 let epoch = shared.epoch_ack.load(Ordering::Acquire);
                 let played = shared.played.load(Ordering::Acquire);
                 let consumed = if epoch == epoch_before {
@@ -139,6 +146,14 @@ impl OutputStream for CaptureStream {
                 } else {
                     played
                 } as usize;
+                if playing {
+                    capture.captured.lock().unwrap().callbacks.push((
+                        epoch,
+                        block.clone(),
+                        consumed,
+                        outcome,
+                    ));
+                }
                 if consumed > 0 {
                     capture
                         .captured
@@ -174,6 +189,8 @@ struct Harness {
     latest: Option<EngineSnapshot>,
     position: Option<PositionStamp>,
     lost: Vec<OutputDeviceId>,
+    boundaries: Vec<(u64, Option<QueueEntryId>, Option<QueueEntryId>, u64)>,
+    format_changes: Vec<QueueEntryId>,
 }
 
 impl Harness {
@@ -187,6 +204,8 @@ impl Harness {
             latest: None,
             position: None,
             lost: Vec::new(),
+            boundaries: Vec::new(),
+            format_changes: Vec::new(),
         }
     }
 
@@ -224,7 +243,16 @@ impl Harness {
             }
             EngineEvent::Position(position) => self.position = Some(position),
             EngineEvent::OutputLost { device } => self.lost.push(device),
-            EngineEvent::Underruns { .. } => {}
+            EngineEvent::Underruns { .. } | EngineEvent::Synchronized { .. } => {}
+            EngineEvent::EntryBoundary {
+                generation,
+                from,
+                to,
+                output_frame,
+            } => self
+                .boundaries
+                .push((generation.get(), from, to, output_frame)),
+            EngineEvent::SourceFormatChanged { entry, .. } => self.format_changes.push(entry),
         }
     }
 
@@ -751,4 +779,40 @@ fn rejecting_a_source_stops_what_was_playing() {
         frames,
         "old audio kept playing"
     );
+}
+
+#[test]
+fn command_acknowledgements_are_ordered_and_independent_of_current_entry_and_generation() {
+    let (engine, events) = PlaybackEngine::start(Box::new(NoOutput));
+    let entry = QueueEntryId::generate();
+    engine.play(
+        entry,
+        ResolvedSource::local_file(MediaFileId::generate(), fixture("flac/s16_44100.flac")),
+    );
+    let play = engine.synchronize();
+    engine.stop();
+    let stop = engine.synchronize();
+    assert_ne!(play, stop);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut acknowledgements = Vec::new();
+    while acknowledgements.len() < 2 {
+        if let EngineEvent::Synchronized { request, snapshot } = events
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .unwrap()
+        {
+            acknowledgements.push((request, snapshot));
+        }
+    }
+    assert_eq!(acknowledgements[0].0, play);
+    assert_eq!(acknowledgements[0].1.playback.current, None);
+    assert_eq!(
+        acknowledgements[0].1.failure.as_ref().unwrap().entry,
+        Some(entry)
+    );
+    assert_eq!(acknowledgements[1].0, stop);
+    assert_eq!(
+        acknowledgements[1].1.playback.transport,
+        TransportState::Stopped
+    );
+    assert!(acknowledgements[1].1.failure.is_none());
 }

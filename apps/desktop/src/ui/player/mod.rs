@@ -1,8 +1,6 @@
 //! Persistent player bar and transport controls.
 
-use std::collections::VecDeque;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
@@ -10,7 +8,8 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, Icon, Sizable as _, StyledExt as _, h_flex, v_flex,
+    ActiveTheme as _, Disableable as _, Icon, Selectable as _, Sizable as _, StyledExt as _,
+    h_flex, v_flex,
 };
 use gpui_kit::prelude::*;
 use gpui_kit::{
@@ -22,11 +21,14 @@ use parabolica_audio::engine::{EngineEvent, EngineSnapshot};
 use parabolica_domain::control::SnapshotGate;
 use parabolica_domain::format::{Codec, SourceSampleFormat};
 use parabolica_domain::gain::Volume;
-use parabolica_domain::ids::{MediaFileId, QueueEntryId};
+use parabolica_domain::ids::QueueEntryId;
 use parabolica_domain::output::OutputBackend;
 use parabolica_domain::playback::{PositionStamp, TransportState};
 
-use crate::commands::playback::PlaybackCommands;
+use crate::commands::playback::{EnqueueMode, PlaybackCommands};
+use crate::controllers::queue::QueueService;
+use parabolica_domain::queue::RepeatMode;
+use parabolica_domain::source::PlayableSource;
 
 pub const PLAYER_HEIGHT: f32 = 104.;
 /// How often the bar drains engine events and redraws the position while playing.
@@ -42,15 +44,17 @@ pub struct Player {
     volume: Entity<SliderState>,
     /// Where the user is dragging the seek slider, as a fraction of the duration.
     dragging: Option<f32>,
-    album_remaining: VecDeque<(MediaFileId, PathBuf)>,
-    album_entry: Option<QueueEntryId>,
+    queue_revision: u64,
+    format_change: Option<(QueueEntryId, String)>,
+    _quit: Subscription,
     _subscriptions: [Subscription; 2],
     _poll: Task<()>,
 }
 
 impl Player {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let (commands, events) = PlaybackCommands::start();
+        let (commands, events) =
+            PlaybackCommands::start_with_storage(crate::ui::library::storage(cx));
         Self::with_commands(commands, events, cx)
     }
 
@@ -94,6 +98,13 @@ impl Player {
                 }
             }
         });
+        let queue = commands.queue().clone();
+        let quit = cx.on_app_quit(move |_, cx| {
+            let queue = queue.clone();
+            cx.background_spawn(async move {
+                queue.shutdown();
+            })
+        });
         Self {
             commands,
             events,
@@ -103,8 +114,9 @@ impl Player {
             seek,
             volume,
             dragging: None,
-            album_remaining: VecDeque::new(),
-            album_entry: None,
+            queue_revision: 0,
+            format_change: None,
+            _quit: quit,
             _subscriptions: subscriptions,
             _poll: poll,
         }
@@ -118,43 +130,67 @@ impl Player {
             match event {
                 EngineEvent::Snapshot(snapshot) => {
                     if let Some(snapshot) = self.gate.accept(*snapshot) {
-                        let ended = snapshot.playback.current == self.album_entry
-                            && self.album_entry.is_some()
-                            && snapshot.playback.transport == TransportState::Stopped
-                            && snapshot.source.is_some()
-                            && snapshot.failure.is_none();
                         self.position = snapshot.playback.position;
                         self.snapshot = Some(snapshot);
-                        if ended {
-                            self.play_next_indexed();
-                        }
                     }
                 }
                 EngineEvent::Position(position) => self.position = Some(position),
-                EngineEvent::Underruns { .. } | EngineEvent::OutputLost { .. } => {}
+                EngineEvent::Underruns { .. }
+                | EngineEvent::OutputLost { .. }
+                | EngineEvent::EntryBoundary { .. }
+                | EngineEvent::Synchronized { .. } => {}
+                EngineEvent::SourceFormatChanged {
+                    entry,
+                    previous,
+                    next,
+                    ..
+                } => {
+                    self.format_change = Some((
+                        entry,
+                        format!(
+                            "Format change: {} Hz / {} ch to {} Hz / {} ch",
+                            previous.rate.hz(),
+                            previous.channels.get(),
+                            next.rate.hz(),
+                            next.channels.get()
+                        ),
+                    ));
+                }
             }
         }
-        if changed || self.transport() == TransportState::Playing {
+        let revision = self.commands.snapshot().revision;
+        let queue_changed = revision != self.queue_revision;
+        self.queue_revision = revision;
+        if changed || queue_changed || self.transport() == TransportState::Playing {
             cx.notify();
         }
     }
 
     fn transport(&self) -> TransportState {
-        self.snapshot
-            .as_ref()
-            .map_or(TransportState::Stopped, |snapshot| {
-                snapshot.playback.transport
-            })
+        self.commands.snapshot().transport
+    }
+
+    pub fn queue(&self) -> QueueService {
+        self.commands.queue().clone()
     }
 
     #[cfg(test)]
     pub(crate) fn indexed_entry_for_test(&self) -> Option<QueueEntryId> {
-        self.album_entry
+        self.commands.snapshot().current
     }
 
     #[cfg(test)]
     pub(crate) fn remaining_indexed_for_test(&self) -> usize {
-        self.album_remaining.len()
+        let state = self.commands.snapshot();
+        state
+            .current
+            .and_then(|current| {
+                state
+                    .entries
+                    .iter()
+                    .position(|entry| entry.entry.id == current)
+            })
+            .map_or(0, |index| state.entries.len() - index - 1)
     }
 
     pub fn is_playing(&self) -> bool {
@@ -164,17 +200,8 @@ impl Player {
         )
     }
 
-    pub fn play_indexed(&mut self, files: Vec<(MediaFileId, PathBuf)>, cx: &mut Context<Self>) {
-        self.album_remaining = files.into();
-        self.play_next_indexed();
-        cx.notify();
-    }
-
-    fn play_next_indexed(&mut self) {
-        self.album_entry = self
-            .album_remaining
-            .pop_front()
-            .map(|(file, path)| self.commands.play_indexed(file, path));
+    pub fn enqueue(&self, sources: Vec<PlayableSource>, mode: EnqueueMode) {
+        self.queue().enqueue_sources(sources, mode);
     }
 
     fn duration(&self) -> Option<Duration> {
@@ -223,8 +250,6 @@ impl Player {
                 return;
             };
             let _ = this.update(cx, |this, cx| {
-                this.album_remaining.clear();
-                this.album_entry = None;
                 this.commands.open_file(path);
                 cx.notify();
             });
@@ -306,6 +331,23 @@ impl Player {
                                 .child(format),
                         )
                     })
+                    .when_some(
+                        self.format_change.as_ref().filter(|(entry, _)| {
+                            snapshot
+                                .is_some_and(|snapshot| snapshot.playback.current == Some(*entry))
+                        }),
+                        |column, (_, label)| {
+                            column.child(
+                                div()
+                                    .id("player-format-change")
+                                    .role(Role::Label)
+                                    .aria_value(label.clone())
+                                    .text_xs()
+                                    .truncate()
+                                    .child(label.clone()),
+                            )
+                        },
+                    )
                     .when_some(failure, |this, failure| {
                         let file = failure.path.as_deref().map(file_name);
                         let text: SharedString = match file {
@@ -343,10 +385,8 @@ impl Player {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let transport = self.transport();
-        let has_entry = self
-            .snapshot
-            .as_ref()
-            .is_some_and(|snapshot| snapshot.playback.current.is_some());
+        let state = self.commands.snapshot();
+        let has_entry = !state.entries.is_empty();
         let duration = self.duration();
         let elapsed = self.elapsed();
         let fraction = match (self.dragging, duration) {
@@ -376,7 +416,7 @@ impl Player {
                 .ghost()
                 .icon(icon)
                 .accessibility_label(label)
-                .disabled(true)
+                .disabled(!has_entry)
         };
 
         // Shares the width equally with the side sections, up to 420 px, and keeps room for its
@@ -392,16 +432,22 @@ impl Player {
             .child(
                 h_flex()
                     .gap_2()
-                    .child(queue_controls(
-                        "player-shuffle",
-                        "Shuffle",
-                        IconName::Shuffle,
-                    ))
-                    .child(queue_controls(
-                        "player-previous",
-                        "Previous",
-                        IconName::SkipBack,
-                    ))
+                    .child(
+                        queue_controls("player-shuffle", "Shuffle", IconName::Shuffle)
+                            .selected(state.shuffle_seed.is_some())
+                            .on_click(cx.listener(|this, _, _, _| {
+                                let state = this.commands.snapshot();
+                                this.queue().set_shuffle(if state.shuffle_seed.is_some() {
+                                    None
+                                } else {
+                                    Some(shuffle_seed())
+                                });
+                            })),
+                    )
+                    .child(
+                        queue_controls("player-previous", "Previous", IconName::SkipBack)
+                            .on_click(cx.listener(|this, _, _, _| this.commands.previous())),
+                    )
                     .child(
                         Button::new("player-play")
                             .primary()
@@ -413,8 +459,22 @@ impl Player {
                             .disabled(!has_entry)
                             .on_click(cx.listener(Self::toggle)),
                     )
-                    .child(queue_controls("player-next", "Next", IconName::SkipForward))
-                    .child(queue_controls("player-repeat", "Repeat", IconName::Repeat)),
+                    .child(
+                        queue_controls("player-next", "Next", IconName::SkipForward)
+                            .on_click(cx.listener(|this, _, _, _| this.commands.next())),
+                    )
+                    .child(
+                        queue_controls(
+                            "player-repeat",
+                            repeat_label(state.repeat),
+                            IconName::Repeat,
+                        )
+                        .selected(state.repeat != RepeatMode::Off)
+                        .on_click(cx.listener(|this, _, _, _| {
+                            this.queue()
+                                .set_repeat(next_repeat(this.commands.snapshot().repeat));
+                        })),
+                    ),
             )
             .child(
                 h_flex()
@@ -580,3 +640,23 @@ fn clock(duration: Duration) -> SharedString {
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) fn shuffle_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos() as u64)
+}
+pub(crate) fn next_repeat(repeat: RepeatMode) -> RepeatMode {
+    match repeat {
+        RepeatMode::Off => RepeatMode::All,
+        RepeatMode::All => RepeatMode::One,
+        RepeatMode::One => RepeatMode::Off,
+    }
+}
+pub(crate) fn repeat_label(repeat: RepeatMode) -> &'static str {
+    match repeat {
+        RepeatMode::Off => "Repeat off",
+        RepeatMode::All => "Repeat all",
+        RepeatMode::One => "Repeat one",
+    }
+}

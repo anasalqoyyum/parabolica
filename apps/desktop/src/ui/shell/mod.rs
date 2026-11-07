@@ -21,7 +21,7 @@ use gpui_kit::{
 };
 
 pub use icons::AppAssets;
-use nav::NavItem;
+pub(crate) use nav::NavItem;
 use page::{History, NAV_GROUPS};
 pub use page::{Page, SettingsSection};
 
@@ -61,6 +61,8 @@ pub struct Shell {
     storage_error: Option<SharedString>,
     player: Entity<Player>,
     library: Entity<LibraryView>,
+    queue: Entity<crate::ui::queue::QueueView>,
+    playlists: Entity<crate::ui::playlists::PlaylistsView>,
     _subscriptions: [Subscription; 4],
 }
 
@@ -73,6 +75,9 @@ impl Shell {
         let search =
             cx.new(|cx| InputState::new(window, cx).placeholder("Search songs, albums, artists"));
         let player = cx.new(Player::new);
+        let commands = player.read(cx).queue();
+        let queue = cx.new(|cx| crate::ui::queue::QueueView::new(commands.clone(), cx));
+        let playlists = cx.new(|cx| crate::ui::playlists::PlaylistsView::new(commands, window, cx));
         let library = cx.new(|cx| LibraryView::new(player.clone(), cx));
         let search_library = library.clone();
         let subscriptions = [
@@ -107,6 +112,8 @@ impl Shell {
             storage_error,
             player,
             library,
+            queue,
+            playlists,
             _subscriptions: subscriptions,
         }
     }
@@ -345,6 +352,8 @@ impl Shell {
                 Page::Albums | Page::Songs | Page::Artists => {
                     self.library.clone().into_any_element()
                 }
+                Page::Queue => self.queue.clone().into_any_element(),
+                Page::Playlists => self.playlists.clone().into_any_element(),
                 Page::ReplayGain => not_available(cx),
             })
     }

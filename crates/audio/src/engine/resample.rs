@@ -59,15 +59,6 @@ impl RateConverter {
         })
     }
 
-    /// Discard buffered input and start a new continuous segment, for example after a seek.
-    pub fn reset(&mut self) {
-        self.resampler.reset();
-        self.input.clear();
-        self.delay_left = self.resampler.output_delay();
-        self.frames_in = 0;
-        self.frames_out = 0;
-    }
-
     /// Convert interleaved `input` and append whatever output is ready to `out`.
     pub fn process(&mut self, input: &[PcmSample], out: &mut Vec<PcmSample>) {
         self.frames_in += (input.len() / self.channels) as u64;
@@ -154,17 +145,5 @@ mod tests {
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f64::max);
         assert!(error < 1e-3, "max error {error}");
-    }
-
-    #[test]
-    fn reset_starts_a_new_segment() {
-        let mut converter = RateConverter::new(96_000, 48_000, 2).unwrap();
-        let mut out = Vec::new();
-        converter.process(&sine(96_000, 500.0, 5000), &mut out);
-        converter.reset();
-        out.clear();
-        converter.process(&sine(96_000, 500.0, 9600), &mut out);
-        converter.finish(&mut out);
-        assert_eq!(out.len(), 4800 * 2);
     }
 }

@@ -1,6 +1,6 @@
-//! The decoder worker: decodes, converts the rate, maps channels and fills the ring buffer.
+//! The decoder worker fills one output ring for the complete deterministic sequence.
 
-use std::path::PathBuf;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
@@ -9,28 +9,27 @@ use std::time::{Duration, Instant};
 
 use parabolica_domain::control::{Generation, GenerationCounter, Tagged};
 use parabolica_domain::format::PcmSample;
+use parabolica_domain::source::{FrameSpan, ResolvedSource};
 use rtrb::Producer;
 
 use super::controller::Message;
 use super::render::StreamShared;
 use super::resample::RateConverter;
 use super::{OutputError, PlaybackError};
-use crate::decode::{Decoder, SourceInfo};
+use crate::decode::{Decoder, SourceInfo, duration_to_frames};
+use crate::transitions::PlaybackSequence;
 
-/// How long the worker waits for the renderer to acknowledge a flush.
+// Repeated tiny entries must not reopen files at the device frame rate.
+const CACHE_SAMPLES: usize = 65_536;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug)]
 pub(crate) enum WorkerCommand {
-    /// Open `path` and start at source frame `start`.
     Load {
         generation: Generation,
-        path: PathBuf,
-        start: u64,
-    },
-    Seek {
-        generation: Generation,
-        frame: u64,
+        sequence: PlaybackSequence,
+        index: usize,
+        position: Duration,
     },
     Stop {
         generation: Generation,
@@ -39,11 +38,15 @@ pub(crate) enum WorkerCommand {
 
 #[derive(Debug)]
 pub(crate) enum WorkerReport {
-    Loaded(Box<SourceInfo>),
-    Seeked {
-        frame: u64,
+    Boundary {
+        output_frame: u64,
+        index: usize,
+        start: u64,
+        info: Result<Box<SourceInfo>, PlaybackError>,
     },
-    /// Enough audio is buffered to start without an immediate underrun, or the source ended.
+    Finished {
+        output_frame: u64,
+    },
     Primed,
     Failed(PlaybackError),
 }
@@ -74,7 +77,6 @@ impl WorkerHandle {
             output_channels,
             prime_frames: output_rate as usize / 10,
             track: None,
-            last_error: None,
         };
         let thread = std::thread::Builder::new()
             .name("parabolica-decoder".to_owned())
@@ -102,17 +104,63 @@ impl Drop for WorkerHandle {
     }
 }
 
+struct CachedSource {
+    info: SourceInfo,
+    samples: Vec<PcmSample>,
+}
+
+enum Input {
+    Decoder(Box<Decoder>),
+    Cached {
+        source: Arc<CachedSource>,
+        at: usize,
+    },
+}
+
+impl Input {
+    fn info(&self) -> &SourceInfo {
+        match self {
+            Self::Decoder(decoder) => decoder.info(),
+            Self::Cached { source, .. } => &source.info,
+        }
+    }
+
+    fn next_block(
+        &mut self,
+        out: &mut Vec<PcmSample>,
+    ) -> Result<usize, crate::decode::DecodeError> {
+        match self {
+            Self::Decoder(decoder) => decoder.next_block(out),
+            Self::Cached { source, at } => {
+                let channels = usize::from(source.info.format.channels.get());
+                let end = (*at + 1024 * channels).min(source.samples.len());
+                out.extend_from_slice(&source.samples[*at..end]);
+                let frames = (end - *at) / channels;
+                *at = end;
+                Ok(frames)
+            }
+        }
+    }
+}
+
 struct Track {
     generation: Generation,
-    decoder: Decoder,
+    sequence: PlaybackSequence,
+    index: usize,
+    decoder: Input,
+    cache: HashMap<usize, Arc<CachedSource>>,
+    cache_samples: usize,
+    cache_candidate: Option<Vec<PcmSample>>,
     converter: Option<RateConverter>,
     channels: usize,
     decoded: Vec<PcmSample>,
     converted: Vec<PcmSample>,
-    /// Frames in the output channel layout, waiting for ring space.
     pending: Vec<PcmSample>,
     pending_at: usize,
-    pushed_frames: usize,
+    pushed_frames: u64,
+    group_frames: u64,
+    group_origin: u64,
+    entry_frames: u64,
     primed: bool,
     decoder_done: bool,
     finished: bool,
@@ -128,8 +176,6 @@ struct Worker {
     output_channels: usize,
     prime_frames: usize,
     track: Option<Track>,
-    /// The error that made the worker drop its track, re-reported to a seek that arrives after.
-    last_error: Option<PlaybackError>,
 }
 
 impl Worker {
@@ -153,7 +199,7 @@ impl Worker {
                 continue;
             }
             if !self.step() {
-                match self.commands.recv_timeout(Duration::from_millis(5)) {
+                match self.commands.recv_timeout(Duration::from_millis(1)) {
                     Ok(command) => self.handle(command),
                     Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => return,
@@ -169,66 +215,30 @@ impl Worker {
     }
 
     fn handle(&mut self, command: WorkerCommand) {
+        self.track = None;
         match command {
             WorkerCommand::Load {
                 generation,
-                path,
-                start,
+                sequence,
+                index,
+                position,
             } => {
-                self.track = None;
-                self.last_error = None;
-                if self.flush(generation) {
-                    self.load(generation, path, start);
-                }
-            }
-            WorkerCommand::Seek { generation, frame } => {
-                if self.track.is_none() && self.generations.is_current(generation) {
-                    // The decoder failed while this seek was on its way, and that failure was
-                    // reported under the older generation. Report again so the controller
-                    // reopens the file instead of waiting for audio.
-                    let error = self.last_error.clone().unwrap_or_else(|| {
-                        PlaybackError::Decode("the file is no longer open".to_owned())
-                    });
-                    return self.report(generation, WorkerReport::Failed(error));
-                }
-                if self.track.is_none() || !self.flush(generation) {
-                    // Superseded: the newer command, already queued, uses the track.
-                    return;
-                }
-                let Some(mut track) = self.track.take() else {
-                    return;
-                };
-                match track.decoder.seek(frame) {
-                    Ok(frame) => {
-                        if let Some(converter) = &mut track.converter {
-                            converter.reset();
-                        }
-                        track.generation = generation;
-                        track.pending.clear();
-                        track.pending_at = 0;
-                        track.pushed_frames = 0;
-                        track.primed = false;
-                        track.decoder_done = false;
-                        track.finished = false;
-                        self.track = Some(track);
-                        self.report(generation, WorkerReport::Seeked { frame });
-                    }
-                    Err(error) => self.report(
-                        generation,
-                        WorkerReport::Failed(PlaybackError::Decode(error.to_string())),
-                    ),
+                if self.flush(generation)
+                    && let Err(error) = self.load(generation, sequence, index, position)
+                {
+                    self.report(generation, WorkerReport::Failed(error));
                 }
             }
             WorkerCommand::Stop { generation } => {
-                self.track = None;
                 self.flush(generation);
             }
         }
     }
 
-    /// Discard everything buffered and wait for the renderer to start `generation`'s epoch.
-    /// Returns false when a newer command superseded it or the device stopped consuming.
     fn flush(&self, generation: Generation) -> bool {
+        if !self.generations.is_current(generation) {
+            return false;
+        }
         self.shared
             .epoch_request
             .store(generation.get(), Ordering::Release);
@@ -249,144 +259,313 @@ impl Worker {
         true
     }
 
-    fn load(&mut self, generation: Generation, path: PathBuf, start: u64) {
-        let mut decoder = match Decoder::open(&path) {
-            Ok(decoder) => decoder,
-            Err(error) => {
-                let error = PlaybackError::Decode(error.to_string());
-                return self.report(generation, WorkerReport::Failed(error));
-            }
+    fn open(&self, source: &ResolvedSource) -> Result<Decoder, PlaybackError> {
+        let path = match source {
+            ResolvedSource::Local {
+                path,
+                span: FrameSpan::Whole,
+                ..
+            } => path,
+            ResolvedSource::Local { .. } => return Err(PlaybackError::CueRange),
+            _ => return Err(PlaybackError::NotLocal),
         };
-        let info = decoder.info().clone();
-        let channels = usize::from(info.format.channels.get());
+        let decoder =
+            Decoder::open(path).map_err(|error| PlaybackError::Decode(error.to_string()))?;
+        let channels = usize::from(decoder.info().format.channels.get());
         if channels > self.output_channels {
-            let error = PlaybackError::ChannelLayout {
+            return Err(PlaybackError::ChannelLayout {
                 source_channels: channels,
                 output_channels: self.output_channels,
-            };
-            return self.report(generation, WorkerReport::Failed(error));
+            });
         }
-        let source_rate = info.format.rate.hz();
-        let converter = if source_rate == self.output_rate {
-            None
+        Ok(decoder)
+    }
+
+    fn converter(&self, info: &SourceInfo) -> Result<Option<RateConverter>, PlaybackError> {
+        if info.format.rate.hz() == self.output_rate {
+            return Ok(None);
+        }
+        RateConverter::new(
+            info.format.rate.hz(),
+            self.output_rate,
+            usize::from(info.format.channels.get()),
+        )
+        .map(Some)
+        .map_err(PlaybackError::Resampler)
+    }
+
+    fn load(
+        &mut self,
+        generation: Generation,
+        sequence: PlaybackSequence,
+        index: usize,
+        position: Duration,
+    ) -> Result<(), PlaybackError> {
+        let mut decoder = self.open(&sequence.entries[index].1)?;
+        let info = decoder.info().clone();
+        let requested = duration_to_frames(position, info.format.rate);
+        let start = if requested > 0 {
+            decoder
+                .seek(requested)
+                .map_err(|error| PlaybackError::Decode(error.to_string()))?
         } else {
-            match RateConverter::new(source_rate, self.output_rate, channels) {
-                Ok(converter) => Some(converter),
-                Err(error) => {
-                    let error = PlaybackError::Resampler(error);
-                    return self.report(generation, WorkerReport::Failed(error));
-                }
-            }
+            0
         };
-        self.report(generation, WorkerReport::Loaded(Box::new(info)));
-        if start > 0 {
-            match decoder.seek(start) {
-                Ok(frame) => self.report(generation, WorkerReport::Seeked { frame }),
-                Err(error) => {
-                    let error = PlaybackError::Decode(error.to_string());
-                    return self.report(generation, WorkerReport::Failed(error));
-                }
-            }
-        }
+        let converter = self.converter(&info)?;
+        self.report(
+            generation,
+            WorkerReport::Boundary {
+                output_frame: 0,
+                index,
+                start,
+                info: Ok(Box::new(info.clone())),
+            },
+        );
         self.track = Some(Track {
             generation,
-            decoder,
+            sequence,
+            index,
+            decoder: Input::Decoder(Box::new(decoder)),
             converter,
-            channels,
+            cache: HashMap::new(),
+            cache_samples: 0,
+            cache_candidate: (start == 0).then(Vec::new),
+            channels: usize::from(info.format.channels.get()),
             decoded: Vec::new(),
             converted: Vec::new(),
             pending: Vec::new(),
             pending_at: 0,
             pushed_frames: 0,
+            group_frames: 0,
+            group_origin: 0,
+            entry_frames: start,
             primed: false,
             decoder_done: false,
             finished: false,
         });
+        Ok(())
     }
 
-    /// Decode or push one unit of work. Returns false when the ring buffer is full.
+    fn flush_converter(&self, track: &mut Track) {
+        if let Some(converter) = &mut track.converter {
+            track.converted.clear();
+            converter.finish(&mut track.converted);
+            map_channels(
+                &track.converted,
+                track.channels,
+                self.output_channels,
+                &mut track.pending,
+            );
+        }
+    }
+
+    fn advance(&self, track: &mut Track) {
+        let rate = track.decoder.info().format.rate.hz();
+        let end = track.group_origin
+            + ((u128::from(track.group_frames) * u128::from(self.output_rate)
+                + u128::from(rate) / 2)
+                / u128::from(rate)) as u64;
+        if track.entry_frames == 0 {
+            self.flush_converter(track);
+            self.report(
+                track.generation,
+                WorkerReport::Boundary {
+                    output_frame: end,
+                    index: track.index,
+                    start: 0,
+                    info: Err(PlaybackError::Decode(
+                        "the entry has no playable frames".to_owned(),
+                    )),
+                },
+            );
+            track.decoder_done = true;
+            return;
+        }
+        if let Some(samples) = track.cache_candidate.take() {
+            track.cache_samples += samples.len();
+            track.cache.insert(
+                track.index,
+                Arc::new(CachedSource {
+                    info: track.decoder.info().clone(),
+                    samples,
+                }),
+            );
+        }
+        let next = track.sequence.next(track.index);
+        let Some(index) = next else {
+            self.flush_converter(track);
+            track.decoder_done = true;
+            return;
+        };
+        let opened = if let Some(source) = track.cache.get(&index) {
+            Ok(Input::Cached {
+                source: source.clone(),
+                at: 0,
+            })
+        } else {
+            self.open(&track.sequence.entries[index].1)
+                .map(|decoder| Input::Decoder(Box::new(decoder)))
+        };
+        let decoder = match opened {
+            Ok(decoder) => decoder,
+            Err(error) => {
+                self.flush_converter(track);
+                self.report(
+                    track.generation,
+                    WorkerReport::Boundary {
+                        output_frame: end,
+                        index,
+                        start: 0,
+                        info: Err(error),
+                    },
+                );
+                track.decoder_done = true;
+                return;
+            }
+        };
+        let info = decoder.info().clone();
+        if !track.decoder.info().continuous_with(&info) {
+            self.flush_converter(track);
+            match self.converter(&info) {
+                Ok(converter) => track.converter = converter,
+                Err(error) => {
+                    self.report(
+                        track.generation,
+                        WorkerReport::Boundary {
+                            output_frame: end,
+                            index,
+                            start: 0,
+                            info: Err(error),
+                        },
+                    );
+                    track.decoder_done = true;
+                    return;
+                }
+            }
+            track.group_frames = 0;
+            track.group_origin = end;
+        }
+        self.report(
+            track.generation,
+            WorkerReport::Boundary {
+                output_frame: end,
+                index,
+                start: 0,
+                info: Ok(Box::new(info)),
+            },
+        );
+        track.channels = usize::from(decoder.info().format.channels.get());
+        track.cache_candidate = matches!(decoder, Input::Decoder(_)).then(Vec::new);
+        track.decoder = decoder;
+        track.index = index;
+        track.entry_frames = 0;
+    }
+
     fn step(&mut self) -> bool {
-        let output_channels = self.output_channels;
-        let Some(track) = &mut self.track else {
+        let Some(mut track) = self.track.take() else {
             return true;
         };
         if !self.generations.is_current(track.generation) {
-            // A newer command is on its way. Stop writing and let it decide what happens to
-            // the track; a seek still needs it.
+            self.track = Some(track);
             return false;
         }
-
-        if track.pending_at == track.pending.len() {
+        let progressed = if track.pending_at == track.pending.len() {
             track.pending.clear();
             track.pending_at = 0;
             if track.decoder_done {
+                self.report(
+                    track.generation,
+                    WorkerReport::Finished {
+                        output_frame: track.pushed_frames,
+                    },
+                );
                 self.shared
                     .source_end
                     .store(track.generation.get(), Ordering::Release);
                 track.finished = true;
                 if !track.primed {
                     track.primed = true;
-                    let generation = track.generation;
-                    self.report(generation, WorkerReport::Primed);
+                    self.report(track.generation, WorkerReport::Primed);
                 }
-                return true;
-            }
-            track.decoded.clear();
-            match track.decoder.next_block(&mut track.decoded) {
-                Ok(frames) => {
-                    let block = if let Some(converter) = &mut track.converter {
-                        track.converted.clear();
-                        if frames == 0 {
-                            converter.finish(&mut track.converted);
-                        } else {
-                            converter.process(&track.decoded, &mut track.converted);
+            } else {
+                track.decoded.clear();
+                match track.decoder.next_block(&mut track.decoded) {
+                    Ok(0) => self.advance(&mut track),
+                    Ok(frames) => {
+                        if let Some(candidate) = &mut track.cache_candidate {
+                            if candidate.len() + track.decoded.len()
+                                <= CACHE_SAMPLES - track.cache_samples
+                            {
+                                candidate.extend_from_slice(&track.decoded);
+                            } else {
+                                track.cache_candidate = None;
+                            }
                         }
-                        &track.converted
-                    } else {
-                        &track.decoded
-                    };
-                    map_channels(block, track.channels, output_channels, &mut track.pending);
-                    track.decoder_done = frames == 0;
-                }
-                Err(error) => {
-                    let generation = track.generation;
-                    self.track = None;
-                    let error = PlaybackError::Decode(error.to_string());
-                    self.last_error = Some(error.clone());
-                    self.report(generation, WorkerReport::Failed(error));
-                    return true;
+                        track.group_frames += frames as u64;
+                        track.entry_frames += frames as u64;
+                        let block = if let Some(converter) = &mut track.converter {
+                            track.converted.clear();
+                            converter.process(&track.decoded, &mut track.converted);
+                            &track.converted
+                        } else {
+                            &track.decoded
+                        };
+                        map_channels(
+                            block,
+                            track.channels,
+                            self.output_channels,
+                            &mut track.pending,
+                        );
+                    }
+                    Err(error) => {
+                        self.flush_converter(&mut track);
+                        let rate = track.decoder.info().format.rate.hz();
+                        let end = track.group_origin
+                            + ((u128::from(track.group_frames) * u128::from(self.output_rate)
+                                + u128::from(rate) / 2)
+                                / u128::from(rate)) as u64;
+                        self.report(
+                            track.generation,
+                            WorkerReport::Boundary {
+                                output_frame: end,
+                                index: track.index,
+                                start: 0,
+                                info: Err(PlaybackError::Decode(error.to_string())),
+                            },
+                        );
+                        track.decoder_done = true;
+                    }
                 }
             }
-            return true;
-        }
-
-        let space = self.producer.slots() / output_channels * output_channels;
-        let count = space.min(track.pending.len() - track.pending_at);
-        if count == 0 {
-            return false;
-        }
-        let chunk = self
-            .producer
-            .write_chunk_uninit(count)
-            .expect("slots were checked");
-        chunk.fill_from_iter(
-            track.pending[track.pending_at..track.pending_at + count]
-                .iter()
-                .copied(),
-        );
-        track.pending_at += count;
-        track.pushed_frames += count / output_channels;
-        if !track.primed && track.pushed_frames >= self.prime_frames {
-            track.primed = true;
-            let generation = track.generation;
-            self.report(generation, WorkerReport::Primed);
-        }
-        true
+            true
+        } else {
+            let space = self.producer.slots() / self.output_channels * self.output_channels;
+            let count = space.min(track.pending.len() - track.pending_at);
+            if count == 0 {
+                false
+            } else {
+                self.producer
+                    .write_chunk_uninit(count)
+                    .expect("slots were checked")
+                    .fill_from_iter(
+                        track.pending[track.pending_at..track.pending_at + count]
+                            .iter()
+                            .copied(),
+                    );
+                track.pending_at += count;
+                track.pushed_frames += (count / self.output_channels) as u64;
+                if !track.primed && track.pushed_frames >= self.prime_frames as u64 {
+                    track.primed = true;
+                    self.report(track.generation, WorkerReport::Primed);
+                }
+                true
+            }
+        };
+        self.track = Some(track);
+        progressed
     }
 }
 
-/// Copy interleaved source frames into the output layout. Source channels go to the first output
-/// channels in order and any further output channels are silent. Mono goes to both front channels.
 fn map_channels(input: &[PcmSample], source: usize, output: usize, out: &mut Vec<PcmSample>) {
     if source == output {
         out.extend_from_slice(input);
@@ -412,7 +591,6 @@ mod tests {
         let mut out = Vec::new();
         map_channels(&[0.1, 0.2], 1, 2, &mut out);
         assert_eq!(out, [0.1, 0.1, 0.2, 0.2]);
-
         out.clear();
         map_channels(&[0.1, 0.2, 0.3, 0.4], 2, 4, &mut out);
         assert_eq!(out, [0.1, 0.2, 0.0, 0.0, 0.3, 0.4, 0.0, 0.0]);

@@ -8,6 +8,7 @@ gpui_kit::assets::icon_assets!(
     ExtraIcons,
     [
         Disc3,
+        ListMusic,
         Music,
         Repeat,
         ScanLine,
@@ -17,6 +18,7 @@ gpui_kit::assets::icon_assets!(
         SlidersHorizontal,
         SunMoon,
         Volume2,
+        X,
     ]
 );
 
@@ -37,5 +39,20 @@ impl AssetSource for AppAssets {
         paths.sort();
         paths.dedup();
         Ok(paths)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui_kit::assets::IconName;
+
+    #[test]
+    fn queue_navigation_and_remove_icons_are_bundled() {
+        for icon in [IconName::ListMusic, IconName::X] {
+            let path = icon.path();
+            let bytes = AppAssets.load(&path).unwrap();
+            assert!(bytes.is_some(), "missing application icon: {path}");
+        }
     }
 }
