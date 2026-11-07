@@ -624,7 +624,8 @@ impl LibraryView {
             );
         let body = Button::new(SharedString::from(format!("collection-item-{index}")))
             .ghost()
-            .w_full()
+            .flex_1()
+            .min_w_0()
             .h(if grid { px(228.) } else { px(72.) })
             .accessibility_label(summary)
             .child(content)
