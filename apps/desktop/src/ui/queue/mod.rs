@@ -281,6 +281,14 @@ impl Render for QueueView {
                     ),
             )
             .child(error_label(self.state.error.as_deref(), cx))
+            .when(self.state.error.is_some(), |view| {
+                view.child(
+                    Button::new("queue-dismiss-error")
+                        .ghost()
+                        .label("Dismiss error")
+                        .on_click(cx.listener(|this, _, _, _| this.queue.dismiss_error())),
+                )
+            })
             .when(count == 0, |view| {
                 view.child(
                     div()

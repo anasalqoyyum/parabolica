@@ -272,3 +272,91 @@ fn append_failure_rolls_back_earlier_duplicate_insertions() {
     );
     assert!(storage.playlist(id).unwrap().entries.is_empty());
 }
+
+#[test]
+fn recovery_refuses_duplicates_referenced_by_playlists_likes_or_history() {
+    use parabolica_domain::files::FileLocation;
+    for reference in ["playlist", "like", "history"] {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = Storage::open(dir.path().join("app.db")).unwrap();
+        let root = storage.add_library_root(dir.path(), None).unwrap();
+        let original = storage
+            .record_media_file(file_record(root, "old.flac", &[]))
+            .unwrap();
+        let duplicate = storage
+            .record_media_file(file_record(root, "new.flac", &[]))
+            .unwrap();
+        let source = PlayableSource::LocalFile(duplicate);
+        match reference {
+            "playlist" => {
+                let id = storage.create_playlist("Saved").unwrap();
+                storage.append_playlist(id, vec![source.clone()]).unwrap();
+            }
+            "like" => storage.set_local_like(source.clone(), true).unwrap(),
+            "history" => storage
+                .save_session(SessionCheckpoint {
+                    queue: queue_of(Vec::new(), Duration::ZERO),
+                    navigation: Vec::new(),
+                    unavailable: Vec::new(),
+                    history: vec![ListeningRecord {
+                        entry: QueueEntryId::generate(),
+                        source: source.clone(),
+                        started_at_ms: 1,
+                    }],
+                })
+                .unwrap(),
+            _ => unreachable!(),
+        }
+        assert!(
+            storage
+                .recover_media_location(
+                    original,
+                    FileLocation {
+                        root,
+                        relative_path: "new.flac".into()
+                    }
+                )
+                .is_err(),
+            "{reference}"
+        );
+        assert_eq!(
+            storage
+                .media_file(original)
+                .unwrap()
+                .unwrap()
+                .location
+                .relative_path,
+            Path::new("old.flac")
+        );
+        assert_eq!(
+            storage
+                .media_file(duplicate)
+                .unwrap()
+                .unwrap()
+                .location
+                .relative_path,
+            Path::new("new.flac")
+        );
+        assert!(storage.source_details(&source).unwrap().resolved.is_some());
+    }
+}
+
+#[test]
+fn a_bulk_like_is_atomic_when_any_source_is_invalid() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let valid = PlayableSource::Provider(youtube("valid"));
+    assert!(
+        storage
+            .set_local_likes(
+                vec![valid.clone(), PlayableSource::Provider(youtube(""))],
+                true
+            )
+            .is_err()
+    );
+    assert!(storage.local_likes().unwrap().is_empty());
+    storage
+        .set_local_likes(vec![valid.clone(), valid.clone()], true)
+        .unwrap();
+    assert_eq!(storage.local_likes().unwrap(), vec![valid]);
+}

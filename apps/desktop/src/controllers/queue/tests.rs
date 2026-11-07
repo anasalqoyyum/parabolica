@@ -581,3 +581,60 @@ fn pause_resume_preserves_the_position_and_does_not_add_a_listening_start() {
     assert!(resumed.position >= Duration::from_secs(2));
     assert_eq!(resumed.history.len(), 1);
 }
+
+#[test]
+fn bulk_likes_save_more_than_an_inbox_of_sources_as_one_command() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let (service, _) = QueueService::start(Some(storage.clone()), Box::new(NoOutput));
+    let sources: Vec<_> = (0..256)
+        .map(|index| {
+            PlayableSource::Provider(ProviderItemRef {
+                provider: ProviderId::YouTubeMusic,
+                item: ProviderItemId(format!("item-{index}")),
+            })
+        })
+        .collect();
+    assert!(service.set_local_likes(sources, true));
+    wait(&service, |state| state.likes.len() == 256);
+    assert_eq!(storage.local_likes().unwrap().len(), 256);
+}
+
+#[test]
+fn rejected_commands_remain_visible_across_worker_publications_until_dismissed() {
+    struct GatedOutput(Option<mpsc::Receiver<()>>);
+    impl Output for GatedOutput {
+        fn open(&mut self) -> Result<Box<dyn OutputStream>, OutputError> {
+            if let Some(gate) = self.0.take() {
+                gate.recv_timeout(Duration::from_secs(5)).unwrap();
+            }
+            Err(OutputError::Unavailable)
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("track.wav");
+    write_wav(&path, 4800);
+    let (release, gate) = mpsc::channel();
+    let (service, _) = QueueService::start(None, Box::new(GatedOutput(Some(gate))));
+    service.enqueue_files(vec![path], EnqueueMode::Now);
+    wait(&service, |state| state.transport == TransportState::Loading);
+    for _ in 0..64 {
+        assert!(service.set_repeat(RepeatMode::All));
+    }
+    assert!(!service.set_repeat(RepeatMode::One));
+    let revision = service.snapshot().revision;
+    wait(&service, |state| {
+        state.revision > revision
+            && state
+                .error
+                .as_ref()
+                .is_some_and(|error| error.contains("busy"))
+    });
+    release.send(()).unwrap();
+    wait(&service, |state| {
+        state.repeat == RepeatMode::All && state.transport == TransportState::Blocked
+    });
+    assert!(service.snapshot().error.as_ref().unwrap().contains("busy"));
+    service.dismiss_error();
+    assert!(service.snapshot().error.is_none());
+}

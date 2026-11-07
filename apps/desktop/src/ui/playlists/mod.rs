@@ -13,7 +13,7 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::{ActiveTheme as _, Disableable as _, Selectable as _, h_flex, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnyElement, Context, Entity, PathPromptOptions, Render, SharedString, Task,
+    AnyElement, Context, Entity, PathPromptOptions, Render, Role, SharedString, Task,
     TestSupportExt as _, Window, div, px, uniform_list,
 };
 use parabolica_domain::ids::PlaylistId;
@@ -261,24 +261,28 @@ impl Render for PlaylistsView {
             .gap_3()
             .child(
                 h_flex()
+                    .id("playlist-navigation")
+                    .role(Role::List)
+                    .aria_label("Playlists")
                     .gap_2()
                     .flex_wrap()
-                    .child(
-                        Button::new("playlist-likes")
-                            .label("Liked in app")
-                            .selected(selected.is_none())
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.selected = None;
-                                this.confirm_delete = false;
-                                cx.notify();
-                            })),
-                    )
+                    .child(crate::ui::shell::NavItem::new(
+                        "playlist-likes",
+                        "Liked in app",
+                        selected.is_none(),
+                        cx.listener(|this, _, _, cx| {
+                            this.selected = None;
+                            this.confirm_delete = false;
+                            cx.notify();
+                        }),
+                    ))
                     .children(self.state.playlists.iter().map(|playlist| {
                         let id = playlist.id;
-                        Button::new(SharedString::from(format!("playlist-{id}")))
-                            .label(playlist.name.clone())
-                            .selected(selected == Some(id))
-                            .on_click(cx.listener(move |this, _, window, cx| {
+                        crate::ui::shell::NavItem::new(
+                            SharedString::from(format!("playlist-{id}")),
+                            playlist.name.clone(),
+                            selected == Some(id),
+                            cx.listener(move |this, _, window, cx| {
                                 this.selected = Some(id);
                                 this.confirm_delete = false;
                                 if let Some(playlist) = this
@@ -292,7 +296,8 @@ impl Render for PlaylistsView {
                                         .update(cx, |input, cx| input.set_value(name, window, cx));
                                 }
                                 cx.notify();
-                            }))
+                            }),
+                        )
                     })),
             )
             .child(
@@ -405,6 +410,14 @@ impl Render for PlaylistsView {
                     }),
             )
             .child(error_label(self.state.error.as_deref(), cx))
+            .when(self.state.error.is_some(), |view| {
+                view.child(
+                    Button::new("playlist-dismiss-error")
+                        .ghost()
+                        .label("Dismiss error")
+                        .on_click(cx.listener(|this, _, _, _| this.queue.dismiss_error())),
+                )
+            })
             .when_some(self.state.last_export.as_ref(), |column, export| {
                 column.children(export.non_exportable.iter().map(|problem| {
                     div()

@@ -38,6 +38,18 @@ fn playlist_controls_create_append_reorder_rename_import_export_and_delete(
     .unwrap();
     click(cx, window, "playlist-create");
     settle(cx, &queue, |state| state.playlists.len() == 1);
+    cx.update_window(window, |_, window, cx| {
+        window.render_frame(cx);
+        assert_eq!(window.find("playlist-likes").selected(), Some(false));
+        let id = queue.snapshot().playlists[0].id;
+        assert_eq!(
+            window
+                .find(SharedString::from(format!("playlist-{id}")))
+                .selected(),
+            Some(true)
+        );
+    })
+    .unwrap();
     click(cx, window, "playlist-add-queue");
     settle(cx, &queue, |state| state.playlists[0].entries.len() == 2);
     let id = queue.snapshot().playlists[0].id;

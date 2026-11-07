@@ -351,8 +351,8 @@ impl Worker {
                 self.storage()?.remove_playlist_entry(id, entry)?;
                 self.refresh_library()?;
             }
-            Command::Like(source, liked) => {
-                self.storage()?.set_local_like(source, liked)?;
+            Command::Like(sources, liked) => {
+                self.storage()?.set_local_likes(sources, liked)?;
                 self.refresh_library()?;
             }
             Command::Import(path, name) => {

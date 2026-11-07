@@ -118,6 +118,7 @@ struct Handle {
     latest: Arc<RwLock<Arc<QueueSnapshot>>>,
     thread: Mutex<Option<JoinHandle<()>>>,
     shutdown: Arc<AtomicBool>,
+    command_error: Mutex<Option<String>>,
 }
 
 #[derive(Debug)]
@@ -148,7 +149,7 @@ enum Command {
     Import(PathBuf, String),
     Export(PlaylistId, PathBuf),
     PlayPlaylist(PlaylistId, EnqueueMode),
-    Like(PlayableSource, bool),
+    Like(Vec<PlayableSource>, bool),
     Refresh,
 }
 
@@ -178,6 +179,7 @@ impl QueueService {
                     latest,
                     thread: Mutex::new(Some(thread)),
                     shutdown,
+                    command_error: Mutex::new(None),
                 }),
             },
             receiver,
@@ -194,21 +196,54 @@ impl QueueService {
 
     /// An in-memory Arc clone. Reading a snapshot never opens files or calls storage.
     pub fn snapshot(&self) -> Arc<QueueSnapshot> {
-        self.inner
+        let snapshot = self
+            .inner
             .latest
             .read()
             .expect("queue snapshot lock")
-            .clone()
+            .clone();
+        let error = self
+            .inner
+            .command_error
+            .lock()
+            .expect("queue command error")
+            .clone();
+        if let Some(error) = error {
+            let mut snapshot = (*snapshot).clone();
+            snapshot.error = Some(error);
+            Arc::new(snapshot)
+        } else {
+            snapshot
+        }
+    }
+
+    pub fn dismiss_error(&self) {
+        *self
+            .inner
+            .command_error
+            .lock()
+            .expect("queue command error") = None;
+        let mut latest = self.inner.latest.write().expect("queue snapshot lock");
+        let mut snapshot = (**latest).clone();
+        snapshot.revision += 1;
+        snapshot.error = None;
+        *latest = Arc::new(snapshot);
     }
 
     fn send(&self, command: Command) -> bool {
         if self.inner.inbox.try_send(command).is_ok() {
             return true;
         }
+        let error = "Queue worker is busy or closed; try again".to_owned();
+        *self
+            .inner
+            .command_error
+            .lock()
+            .expect("queue command error") = Some(error.clone());
         let mut latest = self.inner.latest.write().expect("queue snapshot lock");
         let mut snapshot = (**latest).clone();
         snapshot.revision += 1;
-        snapshot.error = Some("Queue worker is busy or closed; try again".into());
+        snapshot.error = Some(error);
         *latest = Arc::new(snapshot);
         false
     }
@@ -302,7 +337,10 @@ impl QueueService {
         self.send(Command::PlayPlaylist(id, mode))
     }
     pub fn set_local_like(&self, source: PlayableSource, liked: bool) -> bool {
-        self.send(Command::Like(source, liked))
+        self.set_local_likes(vec![source], liked)
+    }
+    pub fn set_local_likes(&self, sources: Vec<PlayableSource>, liked: bool) -> bool {
+        self.send(Command::Like(sources, liked))
     }
     pub fn refresh(&self) -> bool {
         self.send(Command::Refresh)

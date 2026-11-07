@@ -581,8 +581,14 @@ impl LibraryView {
                     .label("Like in app")
                     .disabled(self.checked.is_empty())
                     .on_click(cx.listener(|this, _, _, cx| {
-                        for source in this.selected_sources() {
-                            this.player.read(cx).queue().set_local_like(source, true);
+                        if !this
+                            .player
+                            .read(cx)
+                            .queue()
+                            .set_local_likes(this.selected_sources(), true)
+                        {
+                            this.error = Some("Queue worker is busy; like selection again".into());
+                            cx.notify();
                         }
                     })),
             )

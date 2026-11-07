@@ -143,7 +143,16 @@ impl Storage {
 
     /// An app-owned like, including a like of a provider identity. It performs no provider write.
     pub fn set_local_like(&self, source: PlayableSource, liked: bool) -> Result<(), StorageError> {
+        self.set_local_likes(vec![source], liked)
+    }
+
+    pub fn set_local_likes(
+        &self,
+        sources: Vec<PlayableSource>,
+        liked: bool,
+    ) -> Result<(), StorageError> {
         self.write(move |tx| {
+          for source in sources {
             let columns = source_to_sql(&source)?;
             let key = source_key(&source);
             if liked {
@@ -153,6 +162,7 @@ impl Storage {
             } else {
                 tx.execute("DELETE FROM local_likes WHERE source_key = ?1", [key])?;
             }
+          }
             Ok(())
         })
     }

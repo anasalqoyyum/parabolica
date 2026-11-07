@@ -22,7 +22,7 @@ Development environment is Linux x86_64, Rust 1.99.0, GPUI Kit 0.9.0. No Linux a
 
 MP3 LAME/Xing trimming is checked at the backend boundary. Simulated reader metadata tests verify reported untrimmed delay/padding and audible-frame seeking without double trimming. Symphonia ignores MP4 edit lists; AAC priming that the reader does not report remains unknown and untouched. These simulations do not establish gapless AAC for files with unreported priming.
 
-Domain command sequences check shuffle permutations, stable IDs, insertion, moves/removals and navigation. Storage tests cover playlist/like source identities, duplicates, M3U8 bounds/injection/non-exportable entries, database reopen and all-or-nothing session rollback. Controller tests use an output clock, actual SQLite and a forcibly killed child process. Headless queue/playlist tests drive the visible controls and native-dialog requests. All 242 workspace tests passed on Linux. Formatting, workspace Clippy with warnings denied and `git diff --check` passed. The issue-plan generator validated 35 issues and left its generated output current. The desktop build also passed. The reviewed source head is recorded with the PR.
+Domain command sequences check shuffle permutations, stable IDs, insertion, moves/removals and navigation. Storage tests cover playlist/like source identities, duplicates, M3U8 bounds/injection/non-exportable entries, database reopen and all-or-nothing session rollback. Controller tests use an output clock, actual SQLite and a forcibly killed child process. Headless queue/playlist tests drive the visible controls and native-dialog requests. All 246 workspace tests passed on Linux after the standards-review fixes. Formatting, workspace Clippy with warnings denied and `git diff --check` passed. The issue-plan generator validated 35 issues and left its generated output current. The desktop build also passed. The reviewed source head is recorded with the PR.
 
 Commands run from the repository root:
 
@@ -35,6 +35,12 @@ python3 scripts/render_issue_plan.py
 ```
 
 UI verification found and fixed a list sizing error and a clipped Retry control at a 512-logical-pixel content width. The queue UI test asserts that playback/move/remove/Retry buttons stay inside those bounds. A separate regression keeps pause/resume at its saved position without adding a listening start. The same UI sequence exposed an old engine failure remaining attached to Stop, which prevented the queue from acknowledging the stop. Stop now clears that failure, and shutdown can finish even while an engine acknowledgement is pending.
+
+## Independent review
+
+The standards reviewer inspected source commit `3330a52dc3eb19bad848a002ed812871aefc45c5` and found three issues. Recovery's duplicate-reference guard now includes playlists, likes and listening history. Bulk Like sends one command and commits the whole selection transactionally; an inbox rejection stays visible until Dismiss error. Playlist navigation now uses the focusable list-item pattern with `aria_selected`, including Liked in app.
+
+Regressions cover recovery with each new reference table, atomic bulk-like rollback, 256 likes in one command, retained inbox errors across worker publications and accessible playlist selection. The full 246-test workspace, formatting, Clippy with warnings denied and desktop build pass after these fixes. The independent correctness review is tracked with the PR.
 
 ## Windows acceptance gate
 

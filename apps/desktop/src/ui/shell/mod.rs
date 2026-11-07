@@ -21,7 +21,7 @@ use gpui_kit::{
 };
 
 pub use icons::AppAssets;
-use nav::NavItem;
+pub(crate) use nav::NavItem;
 use page::{History, NAV_GROUPS};
 pub use page::{Page, SettingsSection};
 

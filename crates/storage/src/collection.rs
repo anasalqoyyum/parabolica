@@ -252,11 +252,14 @@ impl Storage {
             if let Some(duplicate) = duplicate {
                 let references: i64 = tx.query_row("SELECT
                     (SELECT COUNT(*) FROM queue_entries WHERE source_kind='file' AND source_id=?1) +
+                    (SELECT COUNT(*) FROM playlist_entries WHERE source_kind='file' AND source_id=?1) +
+                    (SELECT COUNT(*) FROM local_likes WHERE source_kind='file' AND source_id=?1) +
+                    (SELECT COUNT(*) FROM listening_history WHERE source_kind='file' AND source_id=?1) +
                     (SELECT COUNT(*) FROM track_sources WHERE file_id=?1) +
                     (SELECT COUNT(*) FROM virtual_tracks WHERE image_file_id=?1) +
                     (SELECT COUNT(*) FROM job_items WHERE file_id=?1) +
                     (SELECT COUNT(*) FROM local_songs WHERE file_id=?1 AND manual_group=1)", [&duplicate], |r|r.get(0))?;
-                if references > 0 { return Err(StorageError::Conflict("The selected file already has queue, grouping or analysis references. Resolve those references before recovering this file.".into())); }
+                if references > 0 { return Err(StorageError::Conflict("The selected file already has queue, playlist, like, history, grouping or analysis references. Resolve those references before recovering this file.".into())); }
                 tx.execute("DELETE FROM media_files WHERE id=?1",[duplicate])?;
             }
             let changed = tx.execute("UPDATE media_files SET root_id=?2,relative_path=?3,presence='present' WHERE id=?1",params![file.to_bytes(),location.root.to_bytes(),relative])?;
