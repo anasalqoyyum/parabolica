@@ -159,7 +159,15 @@ impl QueueView {
 }
 
 pub(crate) fn source_label(source: &SourceView, cx: &gpui_kit::App) -> AnyElement {
+    let mut label = format!("{}, {}", source.title, source.source_label);
+    if let Some(reason) = &source.unavailable_reason {
+        label.push_str(&format!(", Unavailable: {reason}"));
+    }
     v_flex()
+        .id("queue-source-label")
+        .test_support()
+        .role(Role::Label)
+        .aria_value(label)
         .overflow_hidden()
         .flex_1()
         .min_w_0()

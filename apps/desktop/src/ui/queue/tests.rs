@@ -85,6 +85,12 @@ fn queue_controls_keep_duplicate_ids_move_remove_and_bound_retries(cx: &mut Test
     settle(cx, &queue, |state| state.entries[0].entry.id == ids[0]);
     cx.update_window(window, |_, window, cx| {
         window.render_frame(cx);
+        let source = window.within("queue-row-0").find("queue-source-label");
+        assert_eq!(source.role(), Some(Role::Label));
+        assert_eq!(source.value(), Some("s16_44100, Local file"));
+        let unavailable = window.within("queue-row-2").find("queue-source-label");
+        assert!(unavailable.value().unwrap().contains("missing"));
+        assert!(unavailable.value().unwrap().contains("Unavailable:"));
         for id in [
             "queue-play-0",
             "queue-up-0",

@@ -337,7 +337,15 @@ impl Player {
                                 .is_some_and(|snapshot| snapshot.playback.current == Some(*entry))
                         }),
                         |column, (_, label)| {
-                            column.child(div().text_xs().truncate().child(label.clone()))
+                            column.child(
+                                div()
+                                    .id("player-format-change")
+                                    .role(Role::Label)
+                                    .aria_value(label.clone())
+                                    .text_xs()
+                                    .truncate()
+                                    .child(label.clone()),
+                            )
                         },
                     )
                     .when_some(failure, |this, failure| {
