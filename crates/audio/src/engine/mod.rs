@@ -75,9 +75,16 @@ pub enum PlaybackError {
     CueRange,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EngineRequestId(pub(crate) u64);
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineEvent {
     Snapshot(Box<Versioned<EngineSnapshot>>),
+    Synchronized {
+        request: EngineRequestId,
+        snapshot: Box<EngineSnapshot>,
+    },
     /// A fresh position stamp while playing, to correct extrapolation drift.
     Position(PositionStamp),
     /// Total underruns since the stream opened, read from the callback's counter.
@@ -123,7 +130,8 @@ impl Coalesce for EngineEvent {
             EngineEvent::Snapshot(_) => Some(EngineEventKey::Snapshot),
             EngineEvent::Position(_) => Some(EngineEventKey::Position),
             EngineEvent::Underruns { .. } => Some(EngineEventKey::Underruns),
-            EngineEvent::OutputLost { .. }
+            EngineEvent::Synchronized { .. }
+            | EngineEvent::OutputLost { .. }
             | EngineEvent::EntryBoundary { .. }
             | EngineEvent::SourceFormatChanged { .. } => None,
         }

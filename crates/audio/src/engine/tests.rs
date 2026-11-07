@@ -243,7 +243,7 @@ impl Harness {
             }
             EngineEvent::Position(position) => self.position = Some(position),
             EngineEvent::OutputLost { device } => self.lost.push(device),
-            EngineEvent::Underruns { .. } => {}
+            EngineEvent::Underruns { .. } | EngineEvent::Synchronized { .. } => {}
             EngineEvent::EntryBoundary {
                 generation,
                 from,
@@ -779,4 +779,40 @@ fn rejecting_a_source_stops_what_was_playing() {
         frames,
         "old audio kept playing"
     );
+}
+
+#[test]
+fn command_acknowledgements_are_ordered_and_independent_of_current_entry_and_generation() {
+    let (engine, events) = PlaybackEngine::start(Box::new(NoOutput));
+    let entry = QueueEntryId::generate();
+    engine.play(
+        entry,
+        ResolvedSource::local_file(MediaFileId::generate(), fixture("flac/s16_44100.flac")),
+    );
+    let play = engine.synchronize();
+    engine.stop();
+    let stop = engine.synchronize();
+    assert_ne!(play, stop);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut acknowledgements = Vec::new();
+    while acknowledgements.len() < 2 {
+        if let EngineEvent::Synchronized { request, snapshot } = events
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .unwrap()
+        {
+            acknowledgements.push((request, snapshot));
+        }
+    }
+    assert_eq!(acknowledgements[0].0, play);
+    assert_eq!(acknowledgements[0].1.playback.current, None);
+    assert_eq!(
+        acknowledgements[0].1.failure.as_ref().unwrap().entry,
+        Some(entry)
+    );
+    assert_eq!(acknowledgements[1].0, stop);
+    assert_eq!(
+        acknowledgements[1].1.playback.transport,
+        TransportState::Stopped
+    );
+    assert!(acknowledgements[1].1.failure.is_none());
 }

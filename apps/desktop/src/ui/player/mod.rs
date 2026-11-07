@@ -137,7 +137,8 @@ impl Player {
                 EngineEvent::Position(position) => self.position = Some(position),
                 EngineEvent::Underruns { .. }
                 | EngineEvent::OutputLost { .. }
-                | EngineEvent::EntryBoundary { .. } => {}
+                | EngineEvent::EntryBoundary { .. }
+                | EngineEvent::Synchronized { .. } => {}
                 EngineEvent::SourceFormatChanged {
                     entry,
                     previous,

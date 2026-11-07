@@ -638,3 +638,38 @@ fn rejected_commands_remain_visible_across_worker_publications_until_dismissed()
     service.dismiss_error();
     assert!(service.snapshot().error.is_none());
 }
+
+#[test]
+fn one_frame_repeat_with_sqlite_cannot_starve_pause_clear_or_shutdown() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let path = dir.path().join("one-frame.wav");
+    write_wav(&path, 1);
+    let (service, _events) =
+        QueueService::start(Some(storage.clone()), Box::new(ClockOutput::default()));
+    service.set_repeat(RepeatMode::One);
+    service.enqueue_files(vec![path.clone()], EnqueueMode::Now);
+    wait(&service, |state| state.history.len() >= 100);
+    let pause_at = Instant::now();
+    service.pause();
+    wait(&service, |state| state.transport == TransportState::Paused);
+    assert!(pause_at.elapsed() < Duration::from_secs(2));
+    assert!(service.snapshot().history.len() <= parabolica_storage::session::HISTORY_LIMIT);
+    service.resume();
+    wait(&service, |state| state.transport == TransportState::Playing);
+    let clear_at = Instant::now();
+    service.clear();
+    wait(&service, |state| {
+        state.entries.is_empty() && state.transport == TransportState::Stopped
+    });
+    assert!(clear_at.elapsed() < Duration::from_secs(2));
+    service.enqueue_files(vec![path], EnqueueMode::Now);
+    wait(&service, |state| state.transport == TransportState::Playing);
+    std::thread::sleep(Duration::from_millis(20));
+    let shutdown_at = Instant::now();
+    service.shutdown();
+    assert!(shutdown_at.elapsed() < Duration::from_secs(2));
+    let saved = storage.load_session().unwrap().unwrap();
+    assert_eq!(saved.queue.entries.len(), 1);
+    assert!(saved.queue.current.is_some());
+}

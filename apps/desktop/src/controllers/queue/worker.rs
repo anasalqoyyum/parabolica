@@ -6,7 +6,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock, mpsc};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use parabolica_audio::engine::{EngineEvent, EngineSnapshot, PlaybackEngine, PlaybackError};
+use parabolica_audio::engine::{
+    EngineEvent, EngineRequestId, EngineSnapshot, PlaybackEngine, PlaybackError,
+};
 use parabolica_audio::transitions::PlaybackSequence;
 use parabolica_domain::control::Generation;
 use parabolica_domain::dispatch::coalesce;
@@ -42,8 +44,9 @@ pub(super) struct Worker {
     paused: bool,
     generation: Option<Generation>,
     generation_floor: u64,
-    awaiting_engine: bool,
-    expected_engine_current: Option<QueueEntryId>,
+    awaiting_engine: Option<EngineRequestId>,
+    follow_engine_current: bool,
+    checkpoint_pending: bool,
     pending_start: Option<QueueEntryId>,
     pending_end: bool,
     engine_current: Option<QueueEntryId>,
@@ -79,8 +82,9 @@ impl Worker {
             paused: true,
             generation: None,
             generation_floor: 0,
-            awaiting_engine: false,
-            expected_engine_current: None,
+            awaiting_engine: None,
+            follow_engine_current: false,
+            checkpoint_pending: false,
             pending_start: None,
             pending_end: false,
             engine_current: None,
@@ -115,16 +119,20 @@ impl Worker {
                 }
                 break;
             }
-            self.drain_engine();
+            let busy = self.drain_engine();
             if self.checkpoint_at.elapsed() >= Duration::from_millis(500) {
                 self.capture_position();
                 self.checkpoint();
                 self.publish();
             }
-            if self.awaiting_engine {
+            if self.awaiting_engine.is_some() {
+                if busy {
+                    continue;
+                }
                 match self.engine_events.recv_timeout(Duration::from_millis(5)) {
                     Ok(event) => {
                         self.handle_event(&event);
+                        self.finish_events();
                         let _ = self.events.send(event);
                     }
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -132,7 +140,11 @@ impl Worker {
                 }
                 continue;
             }
-            match commands.recv_timeout(Duration::from_millis(5)) {
+            match commands.recv_timeout(if busy {
+                Duration::ZERO
+            } else {
+                Duration::from_millis(5)
+            }) {
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 Ok(command) => {
                     self.capture_position();
@@ -318,12 +330,12 @@ impl Worker {
                 {
                     self.position = position;
                     self.stamp = None;
-                    self.fence();
                     if let Some(generation) = generation {
                         self.engine.seek_in_generation(generation, entry, position);
                     } else {
                         self.engine.seek(entry, position);
                     }
+                    self.fence(true);
                 }
             }
             Command::Volume(volume) => self.engine.set_volume(volume),
@@ -418,19 +430,20 @@ impl Worker {
         Ok(())
     }
 
-    fn fence(&mut self) {
-        self.generation_floor = self.generation.map_or(1, |generation| generation.get() + 1);
-        self.awaiting_engine = true;
-        self.expected_engine_current = self.queue.current();
+    fn fence(&mut self, follow_current: bool) {
+        if !follow_current {
+            self.generation_floor = self.generation.map_or(1, |generation| generation.get() + 1);
+        }
+        self.awaiting_engine = Some(self.engine.synchronize());
+        self.follow_engine_current = follow_current;
         self.pending_end = false;
         self.stamp = None;
     }
 
     fn stop_engine(&mut self) {
         self.pending_start = None;
-        self.fence();
-        self.expected_engine_current = None;
         self.engine.stop();
+        self.fence(false);
     }
 
     fn select_current(&mut self, paused: bool) -> Result<(), StorageError> {
@@ -458,11 +471,11 @@ impl Worker {
         } else {
             TransportState::Loading
         };
-        self.fence();
         self.pending_start = Some(entry);
         self.engine
             .start_sequence(sequence, entry, self.position, paused)
             .map_err(|error| StorageError::Conflict(error.to_string()))?;
+        self.fence(false);
         Ok(())
     }
 
@@ -475,8 +488,8 @@ impl Worker {
             return self.select_current(self.paused);
         }
         let sequence = self.sequence(entry)?;
-        self.fence();
         self.engine.update_sequence(sequence);
+        self.fence(true);
         Ok(())
     }
 
@@ -662,6 +675,7 @@ impl Worker {
     }
 
     fn checkpoint(&mut self) {
+        self.checkpoint_pending = false;
         if let Some(storage) = &self.storage {
             let session = SessionCheckpoint {
                 queue: QueueCheckpoint {
@@ -685,22 +699,65 @@ impl Worker {
         self.checkpoint_at = Instant::now();
     }
 
-    fn drain_engine(&mut self) {
+    fn drain_engine(&mut self) -> bool {
         let mut batch = Vec::new();
-        while let Ok(event) = self.engine_events.try_recv() {
+        let deadline = Instant::now() + Duration::from_millis(8);
+        for _ in 0..256 {
+            let Ok(event) = self.engine_events.try_recv() else {
+                break;
+            };
             self.handle_event(&event);
             batch.push(event);
+            if Instant::now() >= deadline {
+                break;
+            }
+        }
+        let busy = !batch.is_empty();
+        if busy {
+            self.finish_events();
         }
         for event in coalesce(batch) {
             let _ = self.events.send(event);
         }
+        busy
+    }
+
+    fn finish_events(&mut self) {
+        if self.checkpoint_pending {
+            self.checkpoint();
+        }
+        self.publish();
     }
 
     fn handle_event(&mut self, event: &EngineEvent) {
         match event {
+            EngineEvent::Synchronized { request, snapshot }
+                if self.awaiting_engine == Some(*request) =>
+            {
+                self.awaiting_engine = None;
+                self.generation_floor = snapshot.playback.generation.get();
+                if self.follow_engine_current
+                    && snapshot.playback.current != self.queue.current()
+                    && let Some(current) = snapshot.playback.current
+                {
+                    self.position = Duration::ZERO;
+                    self.stamp = None;
+                    if self.queue.entries().iter().any(|entry| entry.id == current) {
+                        let _ = self.queue.apply(QueueCommand::Jump(current));
+                    } else {
+                        self.queue.next(false);
+                        if let Err(error) = self.select_current(self.paused) {
+                            self.view.error = Some(error.to_string());
+                        }
+                        return;
+                    }
+                }
+                self.engine_snapshot(snapshot);
+                self.checkpoint_pending = true;
+            }
             EngineEvent::Snapshot(snapshot) => self.engine_snapshot(&snapshot.state),
             EngineEvent::Position(stamp)
-                if !self.awaiting_engine
+                if self.awaiting_engine.is_none()
                     && self.engine_current == self.queue.current()
                     && self.queue.current().is_some() =>
             {
@@ -716,9 +773,9 @@ impl Worker {
                 if let Some(to) = to {
                     if self.queue.entries().iter().any(|entry| entry.id == *to) {
                         if from.is_some() {
-                            self.started(*to);
                             self.position = Duration::ZERO;
                             self.stamp = None;
+                            self.started(*to);
                         } else if self.queue.current() == Some(*to) {
                             self.pending_start = Some(*to);
                         }
@@ -726,28 +783,15 @@ impl Worker {
                 } else {
                     self.pending_end = true;
                 }
-                self.checkpoint();
+                self.checkpoint_pending = true;
             }
             _ => {}
         }
-        self.publish();
     }
 
     fn engine_snapshot(&mut self, snapshot: &EngineSnapshot) {
         let generation = snapshot.playback.generation;
-        let output_open_failure = snapshot.playback.current.is_none()
-            && snapshot.failure.as_ref().is_some_and(|failure| {
-                matches!(failure.error, PlaybackError::Output(_))
-                    && failure.entry == self.queue.current()
-            });
-        if self.awaiting_engine
-            && !output_open_failure
-            && (snapshot.failure.is_some()
-                || snapshot.playback.current != self.expected_engine_current)
-        {
-            return;
-        }
-        if generation.get() < self.generation_floor && !output_open_failure {
+        if self.awaiting_engine.is_some() || generation.get() < self.generation_floor {
             return;
         }
         if self.generation.is_some_and(|current| generation < current) {
@@ -755,7 +799,6 @@ impl Worker {
         }
         self.generation = Some(generation);
         self.generation_floor = generation.get();
-        self.awaiting_engine = false;
         self.engine_current = snapshot.playback.current;
         self.engine_transport = snapshot.playback.transport;
         if let Some(failure) = &snapshot.failure {
@@ -788,7 +831,7 @@ impl Worker {
             self.pending_start = None;
             self.stamp = None;
             self.transport = TransportState::Blocked;
-            self.checkpoint();
+            self.checkpoint_pending = true;
             return;
         }
         if self.pending_end {
@@ -796,7 +839,7 @@ impl Worker {
             if let Err(error) = self.navigate(true) {
                 self.view.error = Some(error.to_string());
             }
-            self.checkpoint();
+            self.checkpoint_pending = true;
             return;
         }
         if snapshot.playback.current != self.queue.current() {
@@ -822,7 +865,7 @@ impl Worker {
             snapshot.playback.transport,
             TransportState::Paused | TransportState::Stopped
         ) {
-            self.checkpoint();
+            self.checkpoint_pending = true;
         }
     }
 
@@ -844,7 +887,7 @@ impl Worker {
                 state.reason.clear();
             }
         }
-        self.checkpoint();
+        self.checkpoint_pending = true;
     }
 
     fn source_view(&self, source: &PlayableSource) -> SourceView {
@@ -1048,7 +1091,9 @@ mod event_tests {
         let old = counter.advance();
         worker.generation = Some(old);
         worker.queue.apply(QueueCommand::Jump(ids[1])).unwrap();
-        worker.fence();
+        worker.fence(false);
+        let stale_request = worker.awaiting_engine.unwrap();
+        worker.fence(false);
         let failure_generation = counter.advance();
         let mut failed = snapshot(failure_generation, ids[0], 0);
         failed.failure = Some(PlaybackFailure {
@@ -1057,13 +1102,93 @@ mod event_tests {
             error: PlaybackError::Decode("Old source failed".into()),
         });
         worker.engine_snapshot(&failed);
+        worker.handle_event(&EngineEvent::Synchronized {
+            request: stale_request,
+            snapshot: Box::new(failed),
+        });
         assert_eq!(worker.queue.current(), Some(ids[1]));
-        assert!(worker.awaiting_engine);
+        assert!(worker.awaiting_engine.is_some());
         assert!(worker.unavailable.is_empty());
         let new = counter.advance();
-        worker.engine_snapshot(&snapshot(new, ids[1], 0));
-        assert!(!worker.awaiting_engine);
+        worker.handle_event(&EngineEvent::Synchronized {
+            request: worker.awaiting_engine.unwrap(),
+            snapshot: Box::new(snapshot(new, ids[1], 0)),
+        });
+        assert!(worker.awaiting_engine.is_none());
         assert_eq!(worker.generation, Some(new));
+    }
+
+    #[test]
+    fn an_edit_acknowledges_a_different_entry_after_the_boundary_and_keeps_commands_usable() {
+        let mut worker = worker();
+        let ids = worker.queue.insert(
+            [
+                PlayableSource::LocalFile(MediaFileId::generate()),
+                PlayableSource::LocalFile(MediaFileId::generate()),
+            ],
+            InsertPosition::End,
+        );
+        worker.queue.record_started(ids[0]).unwrap();
+        let counter = GenerationCounter::default();
+        let old = counter.advance();
+        worker.generation = Some(old);
+        worker.engine_current = Some(ids[0]);
+        worker.position = Duration::from_secs(9);
+        worker.fence(true);
+        let request = worker.awaiting_engine.unwrap();
+        worker.handle_event(&EngineEvent::EntryBoundary {
+            generation: old,
+            from: Some(ids[0]),
+            to: Some(ids[1]),
+            output_frame: 100,
+        });
+        let new = counter.advance();
+        worker.handle_event(&EngineEvent::Synchronized {
+            request,
+            snapshot: Box::new(snapshot(new, ids[1], 48)),
+        });
+        assert!(worker.awaiting_engine.is_none());
+        assert_eq!(worker.queue.current(), Some(ids[1]));
+        assert_eq!(worker.history.len(), 1);
+        assert_eq!(worker.history[0].entry, ids[1]);
+        assert_eq!(worker.position, Duration::from_millis(1));
+        worker.command(Command::Pause).unwrap();
+        assert!(worker.paused);
+        worker.command(Command::Queue(QueueCommand::Clear)).unwrap();
+        assert!(worker.queue.entries().is_empty());
+    }
+
+    #[test]
+    fn a_boundary_cannot_commit_the_new_entry_at_the_previous_position() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = Storage::open(dir.path().join("app.db")).unwrap();
+        let mut worker = worker();
+        worker.storage = Some(storage.clone());
+        let ids = worker.queue.insert(
+            [
+                PlayableSource::LocalFile(MediaFileId::generate()),
+                PlayableSource::LocalFile(MediaFileId::generate()),
+            ],
+            InsertPosition::End,
+        );
+        worker.queue.record_started(ids[0]).unwrap();
+        worker.position = Duration::from_secs(90);
+        worker.checkpoint();
+        let generation = GenerationCounter::default().advance();
+        worker.handle_event(&EngineEvent::EntryBoundary {
+            generation,
+            from: Some(ids[0]),
+            to: Some(ids[1]),
+            output_frame: 100,
+        });
+        let before_batch_commit = storage.load_session().unwrap().unwrap();
+        assert_eq!(before_batch_commit.queue.current, Some(ids[0]));
+        assert_eq!(before_batch_commit.queue.position, Duration::from_secs(90));
+        worker.finish_events();
+        let committed = storage.load_session().unwrap().unwrap();
+        assert_eq!(committed.queue.current, Some(ids[1]));
+        assert_eq!(committed.queue.position, Duration::ZERO);
+        assert_eq!(committed.history.last().unwrap().entry, ids[1]);
     }
 
     #[test]

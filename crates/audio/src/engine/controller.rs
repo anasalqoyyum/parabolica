@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -22,7 +22,7 @@ use parabolica_domain::source::{FrameSpan, ResolvedSource};
 use super::output::{Output, OutputError, OutputStream};
 use super::render::{StreamRenderer, StreamShared};
 use super::worker::{WorkerCommand, WorkerHandle, WorkerReport};
-use super::{EngineEvent, EngineSnapshot, PlaybackError, PlaybackFailure};
+use super::{EngineEvent, EngineRequestId, EngineSnapshot, PlaybackError, PlaybackFailure};
 use crate::decode::{SourceInfo, frames_to_duration};
 
 /// Ring buffer length between the decoder worker and the device callback.
@@ -64,6 +64,7 @@ pub(crate) enum Command {
 #[derive(Debug)]
 pub(crate) enum Message {
     Command(Command),
+    Synchronize(EngineRequestId),
     Worker(Tagged<WorkerReport>),
     Shutdown,
 }
@@ -74,6 +75,7 @@ pub(crate) enum Message {
 pub struct PlaybackEngine {
     inbox: Sender<Message>,
     thread: Option<JoinHandle<()>>,
+    next_request: AtomicU64,
 }
 
 impl PlaybackEngine {
@@ -89,6 +91,7 @@ impl PlaybackEngine {
             Self {
                 inbox,
                 thread: Some(thread),
+                next_request: AtomicU64::new(1),
             },
             receiver,
         )
@@ -96,6 +99,13 @@ impl PlaybackEngine {
 
     fn send(&self, command: Command) {
         let _ = self.inbox.send(Message::Command(command));
+    }
+
+    /// The acknowledgement follows earlier boundary events on the same event channel.
+    pub fn synchronize(&self) -> EngineRequestId {
+        let request = EngineRequestId(self.next_request.fetch_add(1, Ordering::Relaxed));
+        let _ = self.inbox.send(Message::Synchronize(request));
+        request
     }
 
     /// Load `source` as `entry` and play it from the start.
@@ -259,6 +269,12 @@ impl Controller {
         loop {
             match messages.recv_timeout(TICK) {
                 Ok(Message::Command(command)) => self.command(command),
+                Ok(Message::Synchronize(request)) => {
+                    let _ = self.events.send(EngineEvent::Synchronized {
+                        request,
+                        snapshot: Box::new(self.snapshot()),
+                    });
+                }
                 Ok(Message::Worker(report)) => {
                     if let Some(report) = report.accept(&self.generations) {
                         self.worker(report);
@@ -834,7 +850,7 @@ impl Controller {
         })
     }
 
-    fn publish(&mut self) {
+    fn snapshot(&self) -> EngineSnapshot {
         let route = self.route();
         let source_format = self
             .current
@@ -863,7 +879,7 @@ impl Controller {
             gain: self.current.as_ref().map(|_| GainSelection::Bypassed),
             volume: self.volume,
         };
-        let snapshot = EngineSnapshot {
+        EngineSnapshot {
             playback,
             path: self.current.as_ref().map(|current| current.path.clone()),
             source: self
@@ -873,7 +889,11 @@ impl Controller {
             output: self.stream.as_ref().map(|stream| stream.negotiated.clone()),
             underruns: self.last_underruns,
             failure: self.failure.clone(),
-        };
+        }
+    }
+
+    fn publish(&mut self) {
+        let snapshot = self.snapshot();
         self.last_position = Instant::now();
         self.last_position_frame = snapshot.playback.position.map(|position| position.frame);
         let _ = self.events.send(EngineEvent::Snapshot(Box::new(
