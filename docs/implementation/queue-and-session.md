@@ -46,7 +46,7 @@ Regressions force an A-to-B boundary during an edit, reject a stale request ackn
 
 The verified Linux code checkpoint is `48620f4e89558baae0f6f2bd6066dc877e2daba4`. It contains both review-fix commits. Later evidence-only commits do not replace the requirement to record the final `git rev-parse HEAD` during Windows runtime verification.
 
-The single draft PR is [#46](https://github.com/anasalqoyyum/parabolica/pull/46), initially opened at `a552ccd3fc08a5bbf705dec365e59d9be79b3c04`. Its current head and Windows MSVC result are in the PR. The PR and #7 remain open and unmerged for Windows runtime acceptance.
+The single draft PR is [#46](https://github.com/anasalqoyyum/parabolica/pull/46), initially opened at `a552ccd3fc08a5bbf705dec365e59d9be79b3c04`. Its current head and Windows MSVC result are in the PR. The user instructed that the PR and #7 stay open and unmerged. Native Windows results are recorded below.
 
 ## Windows acceptance gate
 
@@ -61,4 +61,77 @@ Required native evidence:
 - Exercise an actual continuous split album through WASAPI Shared on a real endpoint. Record device and negotiated/source formats, rendered boundary evidence, underruns and listening observations. Include compatible repeat/shuffle, short tracks and explicit incompatible rate/layout changes. Keep exact PCM capture proof separate from native hardware observations.
 - Verify failure recovery, narrow-window controls, cleanup and the exact source commit tested. Add evidence to this document and the issue before requesting merge authority.
 
-Windows native queue/playlist behavior, clean/crash session restoration and actual WASAPI gapless playback are not verified from Linux. #7 stays open for that phase.
+The Linux handoff above is supplemented by the native Windows verification below. #7 and PR #46 remain open as requested.
+
+## Native Windows verification, 2026-11-07
+
+The continuation started from PR head `860ab6a34662313877cb2b256a66d04c7aeb40ca`. The final application source tested on this machine is `7dcacd78c30c1cfe360572a3305ad7f86b52c745`. Later evidence-only commits leave that application source unchanged. Windows 11 Pro `10.0.26300`, x86_64, Intel Core i5-12400F, about 32 GiB RAM, Rust/Cargo 1.99.0 MSVC and GPUI Kit 0.9.0 were used.
+
+PowerShell ran `cargo.exe` from `\\wsl.localhost\Ubuntu\home\real\.t3\worktrees\parabolica\t3-e17815a6`, with `CARGO_TARGET_DIR=C:\Users\doubl\.cargo-targets\parabolica-t3-e17815a6` and six build jobs. The app was closed before each rebuild. Its executable SHA-256 was `BACB5511E29717570993E599F75AF977149B3B0B18106184555D1AC7268B2FFD`.
+
+All app data and fixtures were under `C:\Users\doubl\AppData\Local\Temp\Parabolica-Issue7-t3-e17815a6`; only the launched test app inherited its isolated `appdata` as `LOCALAPPDATA`. Music was synthetic PCM WAV and FLAC, with relative Japanese M3U8 paths, duplicates and a deliberately missing file. No real library, queue, account or driver setting was changed.
+
+### Native UI and restoration
+
+Windows UI Automation drove the actual `parabolica.exe`, its accessible controls and native file/folder dialogs. Pointer actions used bounds obtained from UIA. Seek used the native slider's UIA bounds and pointer input. It did not rely on the previously documented ineffective accessibility Increment/Decrement action. SQLite observations used read-only Windows Python connections, including the live Windows WAL, rather than WSL SQLite access.
+
+The final native matrix passed:
+
+- Album Play and Play next/later preserved disc/track order. Selected Songs supported next/later and app likes. Repeated insertion produced distinct stable queue-entry IDs for duplicate sources.
+- Moving the playing current entry retained its identity and playback. Removing it selected its effective successor while playback continued. Next/Previous followed actual starts, including explicit navigation under repeat-one. History exposed its source names, and shuffle produced a full permutation with deterministic next/previous.
+- Playlist create, rename, append queue, reorder, remove, play now/next/later and confirmed delete worked. Cancel preserved the playlist. Play now inserted fresh entries and selected the first, preserving the existing queue. App likes stayed separate from playlists and remote likes.
+- Native M3U8 import/export preserved two relative Japanese paths to the same source and a missing path. The two queue entries had different IDs. The missing entry stayed visible; three failed Retry attempts disabled Retry. Skip at the end stopped. A new entry's Retry succeeded after the disposable file returned.
+- At the 640-logical-pixel minimum client width, UIA bounds and a screenshot confirmed Play, Retry, move and Remove controls stayed within the content. Queue navigation and Remove icons were visible after the asset fix.
+
+Clean exit restored the same six IDs, insertion order, shuffle positions/seed, repeat-all, current entry, navigation and listening history, paused at exactly `27.630000 s`. The paused position stayed still after restart. Forced termination while playing restored the same state and history without duplicate entries or an added listening start. Its last committed position was `42.830958 s`; the restored output-clock position was `42.830952 s`.
+
+That 6 microsecond difference follows the engine's existing frame conversion. A stored time seeks to the first source frame at or after that time, then the UI position uses the floored output frame. The restoration assertion checks that exact conversion and a maximum one output frame difference, 23 microseconds for the tested 48 kHz source and 44.1 kHz endpoint. It does not require arbitrary sub-frame timestamps to survive unchanged. Clean and forced restoration snapshots are `final-clean-{before,restored}-db.json` and `final-crash-{committed,restored}-db.json` in the local evidence directory.
+
+### Actual WASAPI endpoint and boundary captures
+
+The default console render endpoint was `DAC (FiiO Q series)`, ID `{0.0.0.00000000}.{79d5e961-7833-43c0-b061-a8e716780e11}`. Windows reported the TUSBAUDIO driver `4.47.0.44597`. `GetMixFormat` returned `WAVE_FORMAT_EXTENSIBLE`, IEEE float, 32-bit, stereo, 44,100 Hz. The app reported WASAPI Shared on that same device. No endpoint, driver or Windows mix-format setting was changed. The device was enumerated as Q series; this evidence does not identify it as a K3 or establish ASIO behavior.
+
+A separate native `IAudioClient`/`IAudioCaptureClient` loopback recorder captured the real endpoint while UI Automation started playback in the real app. It retained every packet, silent packets, device-frame positions and discontinuity flags. The app's own Windows audio session was active with a nonzero peak. The recorder did not replace the app's WASAPI backend.
+
+Matching-rate fixtures used deterministic independent stereo PCM16 samples. Their split lengths were `88200, 1, 7, 255, 1, 4709, 22050, 1, 5, 33021, 88200` frames. Their total was 236,450 frames. Ordered playback was compared with the unsplit source. Repeat-all and repeat-one used tiled source PCM. The shuffle comparison concatenated files in the actual persisted shuffled order, then checked its repeat-all wraps. Comparisons used the full captured signal, including the short-track boundaries and wraps, with no boundary trimming or fitted time warping.
+
+For conversion, six continuous two-second 48 kHz stereo WAV tracks and their FLAC equivalents were compared with the same app playing the unsplit WAV reference through the same endpoint. A second 48 kHz fixture used lengths `48000, 1, 7, 255, 1, 4709, 24000, 1, 5, 33021, 48000`, totaling 158,000 source frames. Comparisons checked exact float samples and signal extent, so periodic tone matching alone could not hide extra or missing output duration. No gain correction was needed.
+
+| Native app sequence | Output frames checked | Complete cycles | Comparison |
+| --- | ---: | ---: | --- |
+| 44.1 kHz ordered split | 236,450 | 1 | Exact source PCM |
+| 44.1 kHz repeat-all | 762,842 | 3 | Exact source PCM |
+| 44.1 kHz repeat-one | 409,160 | 4 | Exact source PCM |
+| 44.1 kHz shuffled repeat-all | 761,960 | 3 | Exact source PCM |
+| 48 kHz WAV split to 44.1 kHz | 529,200 | 1 | Exact unsplit endpoint capture |
+| 48 kHz FLAC split to 44.1 kHz | 529,200 | 1 | Exact unsplit endpoint capture |
+| 48 kHz short split to 44.1 kHz | 145,163 | 1 | Exact unsplit endpoint capture |
+
+All listed comparisons were exact, with zero differing samples, zero capture discontinuities during the signal and zero gaps in capture device-frame positions. This is native Windows endpoint evidence, separate from the portable renderer-boundary tests above. The player does not expose its internal cumulative underrun counter, so that counter was not read. The complete exact captures establish no inserted silence, dropped or repeated frames in the measured compatible output. They do not assign a numeric internal underrun total to startup or idle silence.
+
+A separate native sequence changed `48000 Hz / 2 ch` to `44100 Hz / 1 ch` and back to `48000 Hz / 2 ch`. Both explicit Format change announcements appeared in UIA. The shared endpoint stayed at 44.1 kHz stereo. Continuous output across those incompatible boundaries is not claimed.
+
+### Fixes, checks and review
+
+Native inspection found that source titles and unavailable reasons were absent from the accessibility tree, and that Queue navigation and Remove icons were absent from the production asset bundle. Commits `5575393`, `d2fbcb0` and `7dcacd7` add the semantic labels, give repeated History rows independent ID scopes and embed `ListMusic`/`X`. The first label change exposed a duplicate History accessibility-node crash; the scoped-row correction and repeated-source regression cover it. Native UIA and screenshots verified the corrected behavior.
+
+Windows MSVC checks passed on the final source:
+
+```text
+cargo.exe fmt --all --check
+cargo.exe clippy --workspace --all-targets --locked -- -D warnings
+cargo.exe test --workspace --locked
+cargo.exe build -p parabolica-desktop --locked
+```
+
+All 254 Windows workspace tests passed. The queue-label, repeated-History and icon checks have failing and passing evidence from this continuation. An independent GPT-6.1 Sol High review approved the four-file continuation diff from `860ab6a` through `7dcacd7` in one round, with no findings. It did not claim the then-pending final native rerun had passed. The completed native result is recorded separately in `final-suite-result.json`.
+
+### Artifacts, cleanup and limits
+
+Local evidence is retained in `/tmp/parabolica-issue7-windows-20261107`: fixture generators/manifests, the UIA driver and action log, read-only database snapshots, final database backup, native loopback recorder/raw PCM/packet reports/comparisons, build/test logs, screenshots' paths and the append-only decision log. These are verification artifacts, not production assets. Screenshot captures remain in `F:\Libraries\Pictures\Screenshots`, including `parabolica-issue7-narrow-unavailable-20261107-234101-032.png` and `parabolica-issue7-native-session-before-crash-20261107-234116-349.png`.
+
+The test app and recorder processes were closed. All 37 original fixture-file hashes stayed unchanged, and the native split PCM still matched its reference. Synthetic fixtures were archived as `synthetic-fixtures.zip`, and the final SQLite backup passed `PRAGMA quick_check`. The complete disposable Windows app-data/fixture directory was removed and its absence confirmed. `cmdkey /list:Parabolica-test*` reported no test credentials. The dedicated Cargo cache and evidence archive remain.
+
+No human acoustic listening or analog capture was performed. Loopback establishes the measured Windows render path, not DAC analog output, hardware DSP or bit-perfect delivery. Other endpoints, physical device removal, integer shared formats, ASIO, Narrator speech and other display scaling were not checked here. The separate #5/#9 hardware requirements remain separate. MP3/AAC native gapless behavior was not added to these fixtures; the previously documented unknown AAC edit-list priming remains unresolved.
+
+The requested native queue, restoration and compatible WASAPI checks passed on this endpoint. Human listening confirmation remains unperformed. Keep PR #46 unmerged and #7 open as requested; these results do not authorize merge or close unrelated hardware gates.
