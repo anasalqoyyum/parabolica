@@ -44,6 +44,7 @@ impl PlaylistsView {
                             if state.last_created_playlist != this.last_created {
                                 this.last_created = state.last_created_playlist;
                                 this.selected = this.last_created;
+                                this.confirm_delete = false;
                             }
                             if this.selected.is_some_and(|id| {
                                 !state.playlists.iter().any(|playlist| playlist.id == id)

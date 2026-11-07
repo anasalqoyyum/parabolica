@@ -150,6 +150,7 @@ enum Command {
     Export(PlaylistId, PathBuf),
     PlayPlaylist(PlaylistId, EnqueueMode),
     Like(Vec<PlayableSource>, bool),
+    DismissError,
     Refresh,
 }
 
@@ -223,11 +224,7 @@ impl QueueService {
             .command_error
             .lock()
             .expect("queue command error") = None;
-        let mut latest = self.inner.latest.write().expect("queue snapshot lock");
-        let mut snapshot = (**latest).clone();
-        snapshot.revision += 1;
-        snapshot.error = None;
-        *latest = Arc::new(snapshot);
+        self.send(Command::DismissError);
     }
 
     fn send(&self, command: Command) -> bool {

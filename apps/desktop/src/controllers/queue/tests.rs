@@ -636,7 +636,28 @@ fn rejected_commands_remain_visible_across_worker_publications_until_dismissed()
     });
     assert!(service.snapshot().error.as_ref().unwrap().contains("busy"));
     service.dismiss_error();
-    assert!(service.snapshot().error.is_none());
+    wait(&service, |state| state.error.is_none());
+}
+
+#[test]
+fn worker_errors_stay_dismissed_across_publications() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let path = dir.path().join("invalid.m3u8");
+    std::fs::write(&path, "#EXTM3U\nhttps://example.invalid/track.flac\n").unwrap();
+    let (service, _) = QueueService::start(Some(storage), Box::new(NoOutput));
+    wait(&service, |state| state.ready);
+    service.import_m3u8(path.clone(), "Invalid".into());
+    let failed = wait(&service, |state| state.error.is_some());
+    let error = failed.error.clone();
+    service.dismiss_error();
+    let dismissed = service.snapshot().revision;
+    let published = wait(&service, |state| state.revision > dismissed + 2);
+    assert!(published.error.is_none(), "{:?}", published.error);
+    service.import_m3u8(path, "Invalid again".into());
+    let failed_again = wait(&service, |state| state.error.is_some());
+    assert_eq!(failed_again.error, error);
+    service.shutdown();
 }
 
 #[test]

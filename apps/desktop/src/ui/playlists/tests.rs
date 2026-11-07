@@ -7,6 +7,59 @@ use super::*;
 use crate::ui::queue::tests::{click, fixture, settle};
 
 #[gpui_kit::test]
+fn auto_selected_playlists_require_fresh_delete_confirmation(cx: &mut TestAppContext) {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let (queue, _) = QueueService::start(Some(storage.clone()), Box::new(NoOutput));
+    let (window, view) = cx.update(|cx| {
+        gpui_kit::init(cx);
+        gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
+            cx.new(|cx| PlaylistsView::new(queue.clone(), window, cx))
+        })
+        .unwrap()
+    });
+    queue.create_playlist("Original".into());
+    settle(cx, &queue, |state| state.playlists.len() == 1);
+    let original = queue.snapshot().playlists[0].id;
+    for (index, import) in [false, true].into_iter().enumerate() {
+        click(cx, window, &format!("playlist-{original}"));
+        click(cx, window, "playlist-delete");
+        if import {
+            let path = dir.path().join("imported.m3u8");
+            std::fs::write(&path, "#EXTM3U\nmissing.flac\n").unwrap();
+            click(cx, window, "playlist-import");
+            assert!(cx.did_prompt_for_paths());
+            cx.simulate_path_prompt_response(|_| Some(vec![path]));
+        } else {
+            cx.update_window(window, |_, window, cx| {
+                view.update(cx, |view, cx| {
+                    view.name
+                        .update(cx, |name, cx| name.set_value("Created", window, cx));
+                });
+            })
+            .unwrap();
+            click(cx, window, "playlist-create");
+        }
+        let count = index + 2;
+        settle(cx, &queue, |state| state.playlists.len() == count);
+        let selected = queue.snapshot().last_created_playlist.unwrap();
+        cx.update(|cx| {
+            assert_eq!(view.read(cx).selected, Some(selected));
+            assert!(!view.read(cx).confirm_delete);
+        });
+        click(cx, window, "playlist-delete");
+        let revision = queue.snapshot().revision;
+        settle(cx, &queue, |state| state.revision > revision);
+        assert_eq!(queue.snapshot().playlists.len(), count);
+        assert!(storage.playlist(original).is_ok());
+        assert!(storage.playlist(selected).is_ok());
+        cx.update(|cx| assert!(view.read(cx).confirm_delete));
+        click(cx, window, "playlist-cancel-delete");
+    }
+    queue.shutdown();
+}
+
+#[gpui_kit::test]
 fn playlist_controls_create_append_reorder_rename_import_export_and_delete(
     cx: &mut TestAppContext,
 ) {

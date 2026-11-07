@@ -403,6 +403,7 @@ impl Worker {
                     mode,
                 ))?;
             }
+            Command::DismissError => self.view.error = None,
             Command::Refresh => {
                 self.refresh_library()?;
                 self.refresh_queue_sources()?;
