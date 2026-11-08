@@ -48,6 +48,11 @@ impl Output for SelectedCapture {
                 "test unsupported rate".into(),
             ));
         }
+        self.capture.channels = if selection.backend == OutputBackend::WasapiExclusive {
+            source.channels
+        } else {
+            ChannelCount::STEREO
+        };
         let inner = self.capture.open()?;
         let mut negotiated = inner.negotiated().clone();
         negotiated.device = selection.device.clone().unwrap_or(OutputDeviceId {
@@ -145,6 +150,89 @@ fn fixed_rate_converts_multiple_sources_without_reopening() {
     assert!(ended.failure.is_none());
     assert_eq!(requests.lock().unwrap().len(), 1);
     assert_eq!(ended.output.unwrap().format.rate.hz(), 48_000);
+}
+
+#[test]
+fn exclusive_channel_changes_reopen_before_enforcing_the_previous_stream_limit() {
+    for policy in [
+        SampleRatePolicy::FollowSource,
+        SampleRatePolicy::Fixed(SampleRate::new(48_000).unwrap()),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = ["mono.wav", "stereo.wav", "mono-again.wav"].map(|name| dir.path().join(name));
+        let samples = [
+            vec![1000; 1024],
+            [2000, -2000].repeat(1024),
+            vec![3000; 1024],
+        ];
+        for ((path, samples), channels) in paths.iter().zip(&samples).zip([1, 2, 1]) {
+            super::sequence_tests::write_wav(path, 48_000, channels, samples);
+        }
+        let (mut harness, requests) = selected(vec![48_000]);
+        harness.engine.select_output(exclusive(policy));
+        let (sequence, ids) = super::sequence_tests::sequence(&paths, RepeatMode::Off);
+        harness
+            .engine
+            .start_sequence(sequence, ids[0], Duration::ZERO, false)
+            .unwrap();
+        let ended = harness.wait("channel changes ended", |state| {
+            state.failure.is_some()
+                || (state.playback.current == Some(ids[2])
+                    && state.playback.transport == TransportState::Stopped)
+        });
+        assert!(ended.failure.is_none(), "{:?}", ended.failure);
+        assert_eq!(
+            requests
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, source)| source.channels.get())
+                .collect::<Vec<_>>(),
+            [1, 2, 1]
+        );
+        let played: Vec<_> = harness
+            .capture
+            .captured
+            .lock()
+            .unwrap()
+            .blocks
+            .iter()
+            .flat_map(|(_, samples)| samples.iter().copied())
+            .collect();
+        let expected: Vec<_> = samples
+            .iter()
+            .flatten()
+            .map(|sample| f32::from(*sample) / 32768.)
+            .collect();
+        assert_eq!(played, expected);
+    }
+}
+
+#[test]
+fn shared_channel_limit_rejects_a_wider_next_source_without_reopening() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = ["stereo.wav", "surround.wav"].map(|name| dir.path().join(name));
+    super::sequence_tests::write_wav(&paths[0], 48_000, 2, &[1000; 2048]);
+    super::sequence_tests::write_wav(&paths[1], 48_000, 6, &[2000; 6144]);
+    let (mut harness, requests) = selected(vec![48_000]);
+    let (sequence, ids) = super::sequence_tests::sequence(&paths, RepeatMode::Off);
+    harness
+        .engine
+        .start_sequence(sequence, ids[0], Duration::ZERO, false)
+        .unwrap();
+    let failed = harness.wait("wider Shared source rejected", |state| {
+        state.failure.is_some()
+    });
+    let failure = failed.failure.unwrap();
+    assert_eq!(failure.entry, Some(ids[1]));
+    assert_eq!(
+        failure.error,
+        PlaybackError::ChannelLayout {
+            source_channels: 6,
+            output_channels: 2,
+        }
+    );
+    assert_eq!(requests.lock().unwrap().len(), 1);
 }
 
 #[test]

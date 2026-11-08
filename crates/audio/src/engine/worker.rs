@@ -283,7 +283,11 @@ impl Worker {
         let decoder =
             Decoder::open(path).map_err(|error| PlaybackError::Decode(error.to_string()))?;
         let channels = usize::from(decoder.info().format.channels.get());
-        if channels > self.output_channels {
+        if channels > self.output_channels
+            && !self
+                .selection
+                .needs_new_stream(&decoder.info().format, &self.negotiated)
+        {
             return Err(PlaybackError::ChannelLayout {
                 source_channels: channels,
                 output_channels: self.output_channels,
