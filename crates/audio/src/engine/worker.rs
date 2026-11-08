@@ -47,6 +47,11 @@ pub(crate) enum WorkerReport {
     Finished {
         output_frame: u64,
     },
+    Reconfigure {
+        output_frame: u64,
+        index: usize,
+        info: Box<SourceInfo>,
+    },
     Primed,
     Failed(PlaybackError),
 }
@@ -61,14 +66,18 @@ impl WorkerHandle {
     pub fn spawn(
         producer: Producer<PcmSample>,
         shared: Arc<StreamShared>,
-        output_rate: u32,
-        output_channels: usize,
         generations: Arc<GenerationCounter>,
         reports: Sender<Message>,
+        selection: parabolica_domain::output::OutputSelection,
+        negotiated: parabolica_domain::output::NegotiatedOutput,
     ) -> Self {
+        let output_rate = negotiated.format.rate.hz();
+        let output_channels = usize::from(negotiated.format.channels.get());
         let (commands, receiver) = std::sync::mpsc::channel();
         let worker = Worker {
             commands: receiver,
+            selection,
+            negotiated,
             reports,
             producer,
             shared,
@@ -167,6 +176,8 @@ struct Track {
 }
 
 struct Worker {
+    selection: parabolica_domain::output::OutputSelection,
+    negotiated: parabolica_domain::output::NegotiatedOutput,
     commands: Receiver<WorkerCommand>,
     reports: Sender<Message>,
     producer: Producer<PcmSample>,
@@ -272,7 +283,11 @@ impl Worker {
         let decoder =
             Decoder::open(path).map_err(|error| PlaybackError::Decode(error.to_string()))?;
         let channels = usize::from(decoder.info().format.channels.get());
-        if channels > self.output_channels {
+        if channels > self.output_channels
+            && !self
+                .selection
+                .needs_new_stream(&decoder.info().format, &self.negotiated)
+        {
             return Err(PlaybackError::ChannelLayout {
                 source_channels: channels,
                 output_channels: self.output_channels,
@@ -303,6 +318,14 @@ impl Worker {
     ) -> Result<(), PlaybackError> {
         let mut decoder = self.open(&sequence.entries[index].1)?;
         let info = decoder.info().clone();
+        if self
+            .selection
+            .needs_new_stream(&info.format, &self.negotiated)
+        {
+            return Err(PlaybackError::Output(OutputError::UnsupportedFormat(
+                "the source format changed while opening; retry selected output".to_owned(),
+            )));
+        }
         let requested = duration_to_frames(position, info.format.rate);
         let start = if requested > 0 {
             decoder
@@ -424,6 +447,22 @@ impl Worker {
             }
         };
         let info = decoder.info().clone();
+        if self
+            .selection
+            .needs_new_stream(&info.format, &self.negotiated)
+        {
+            self.flush_converter(track);
+            self.report(
+                track.generation,
+                WorkerReport::Reconfigure {
+                    output_frame: end,
+                    index,
+                    info: Box::new(info),
+                },
+            );
+            track.decoder_done = true;
+            return;
+        }
         if !track.decoder.info().continuous_with(&info) {
             self.flush_converter(track);
             match self.converter(&info) {

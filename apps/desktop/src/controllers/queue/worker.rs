@@ -26,6 +26,8 @@ use parabolica_storage::session::{
 };
 use parabolica_storage::{Storage, StorageError};
 
+use crate::ui::listening_device::preferences::SavedOutput;
+
 use super::{
     Command, EnqueueMode, HistoryView, PlaylistEntryView, PlaylistView, QueueEntryView,
     QueueSnapshot, SourceView,
@@ -33,6 +35,8 @@ use super::{
 
 pub(super) struct Worker {
     storage: Option<Storage>,
+    output_ready: bool,
+    output_refreshed_at: Instant,
     engine: PlaybackEngine,
     engine_events: mpsc::Receiver<EngineEvent>,
     events: mpsc::Sender<EngineEvent>,
@@ -71,6 +75,8 @@ impl Worker {
     ) -> Self {
         Self {
             storage,
+            output_ready: true,
+            output_refreshed_at: Instant::now(),
             engine,
             engine_events,
             events,
@@ -118,6 +124,10 @@ impl Worker {
                     }
                 }
                 break;
+            }
+            if self.output_refreshed_at.elapsed() >= Duration::from_secs(3) {
+                self.refresh_outputs();
+                self.publish();
             }
             let busy = self.drain_engine();
             if self.checkpoint_at.elapsed() >= Duration::from_millis(500) {
@@ -183,7 +193,72 @@ impl Worker {
         self.storage.as_ref().ok_or(StorageError::Closed)
     }
 
+    fn refresh_outputs(&mut self) {
+        self.output_refreshed_at = Instant::now();
+        #[cfg(windows)]
+        self.apply_output_refresh(
+            parabolica_platform::windows::audio_devices::enumerate()
+                .map_err(|error| error.to_string()),
+        );
+    }
+
+    #[cfg(any(windows, test))]
+    fn apply_output_refresh(
+        &mut self,
+        result: Result<Vec<parabolica_domain::output::AudioEndpoint>, String>,
+    ) {
+        match result {
+            Ok(endpoints) => {
+                self.view.endpoints = endpoints;
+                self.view.output_refresh_error = None;
+            }
+            Err(error) => {
+                self.view.output_refresh_error = Some(format!("Can't refresh endpoints: {error}"));
+            }
+        }
+    }
+
     fn restore(&mut self) -> Result<(), StorageError> {
+        if let Some(storage) = &self.storage {
+            match storage.preference::<SavedOutput>() {
+                Ok(Some(saved)) => self.view.output_selection = saved.0,
+                Ok(None) => {}
+                Err(error) => {
+                    self.output_ready = false;
+                    self.view.output_settings_error = Some(format!(
+                        "Saved output could not be read: {error}. Choose an output before playing."
+                    ))
+                }
+            }
+        }
+        self.refresh_outputs();
+        if self.view.output_settings_error.is_none()
+            && matches!(
+                self.view.output_selection.backend,
+                parabolica_domain::output::OutputBackend::WasapiShared
+                    | parabolica_domain::output::OutputBackend::WasapiExclusive
+            )
+            && self.view.output_selection.device.is_none()
+            && let Some(default) = self
+                .view
+                .endpoints
+                .iter()
+                .find(|endpoint| endpoint.available && endpoint.is_default)
+        {
+            self.view.output_selection.device = Some(parabolica_domain::output::OutputDeviceId {
+                backend: self.view.output_selection.backend,
+                stable_id: default.stable_id.clone(),
+            });
+            if let Some(storage) = &self.storage
+                && let Err(error) =
+                    storage.save_preference(&SavedOutput(self.view.output_selection.clone()))
+            {
+                self.view.output_settings_error =
+                    Some(format!("Can't save initial output: {error}"));
+            }
+        }
+        self.engine
+            .select_output(self.view.output_selection.clone());
         if let Some(storage) = &self.storage
             && let Some(saved) = storage.load_session()?
         {
@@ -306,6 +381,8 @@ impl Worker {
                 self.engine.pause();
             }
             Command::Resume => {
+                self.require_output_selection()?;
+                self.refresh_outputs();
                 if let Some(entry) = self.queue.current()
                     && self.engine_current == Some(entry)
                     && !self.is_unavailable(entry)
@@ -339,6 +416,34 @@ impl Worker {
                 }
             }
             Command::Volume(volume) => self.engine.set_volume(volume),
+            Command::RefreshOutputs => self.refresh_outputs(),
+            Command::SelectOutput(selection) => {
+                if selection
+                    .device
+                    .as_ref()
+                    .is_some_and(|device| device.backend != selection.backend)
+                {
+                    self.view.output_settings_error =
+                        Some("The selected device belongs to a different backend".to_owned());
+                    return Err(StorageError::Conflict(
+                        "Output backend and device do not match".to_owned(),
+                    ));
+                }
+                if let Some(storage) = &self.storage
+                    && let Err(error) = storage.save_preference(&SavedOutput(selection.clone()))
+                {
+                    self.view.output_settings_error =
+                        Some(format!("Can't save output; selection unchanged: {error}"));
+                    return Err(error);
+                }
+                self.output_ready = true;
+                self.view.output_selection = selection.clone();
+                self.view.output_settings_error = None;
+                self.paused = true;
+                self.stamp = None;
+                self.engine.select_output(selection);
+                self.fence(true);
+            }
             Command::CreatePlaylist(name) => {
                 self.view.last_created_playlist = Some(self.storage()?.create_playlist(&name)?);
                 self.refresh_library()?;
@@ -447,7 +552,18 @@ impl Worker {
         self.fence(false);
     }
 
+    fn require_output_selection(&self) -> Result<(), StorageError> {
+        if self.output_ready {
+            Ok(())
+        } else {
+            Err(StorageError::Conflict(
+                "Choose an output in Listening device before playing".to_owned(),
+            ))
+        }
+    }
+
     fn select_current(&mut self, paused: bool) -> Result<(), StorageError> {
+        self.require_output_selection()?;
         self.paused = paused;
         self.stamp = None;
         let Some(entry) = self.queue.current() else {
@@ -786,6 +902,22 @@ impl Worker {
                 }
                 self.checkpoint_pending = true;
             }
+            EngineEvent::SourceFormatChanged {
+                generation, entry, ..
+            } if generation.get() >= self.generation_floor
+                && self.queue.current() != Some(*entry)
+                && self
+                    .queue
+                    .entries()
+                    .iter()
+                    .any(|candidate| candidate.id == *entry) =>
+            {
+                let _ = self.queue.apply(QueueCommand::Jump(*entry));
+                self.position = Duration::ZERO;
+                self.stamp = None;
+                self.pending_start = Some(*entry);
+                self.checkpoint_pending = true;
+            }
             _ => {}
         }
     }
@@ -802,6 +934,19 @@ impl Worker {
         self.generation_floor = generation.get();
         self.engine_current = snapshot.playback.current;
         self.engine_transport = snapshot.playback.transport;
+        if self.view.output_selection.device.is_none()
+            && let Some(output) = &snapshot.output
+        {
+            self.view.output_selection.device = Some(output.device.clone());
+            if let Some(storage) = &self.storage
+                && let Err(error) =
+                    storage.save_preference(&SavedOutput(self.view.output_selection.clone()))
+            {
+                self.view.output_settings_error =
+                    Some(format!("Can't save selected endpoint: {error}"));
+            }
+        }
+
         if let Some(failure) = &snapshot.failure {
             if snapshot.playback.current == self.queue.current()
                 && let Some(stamp) = snapshot.playback.position
@@ -829,7 +974,9 @@ impl Worker {
                 self.position = Duration::ZERO;
             }
             self.pending_end = false;
-            self.pending_start = None;
+            if !matches!(failure.error, PlaybackError::Output(_)) {
+                self.pending_start = None;
+            }
             self.stamp = None;
             self.transport = TransportState::Blocked;
             self.checkpoint_pending = true;
@@ -1036,6 +1183,31 @@ mod event_tests {
             underruns: 0,
             failure: None,
         }
+    }
+
+    #[test]
+    fn recovered_refresh_clears_only_the_device_query_error() {
+        let mut worker = worker();
+        worker.view.output_settings_error = Some("The saved output could not be read".to_owned());
+        worker.apply_output_refresh(Err("temporary enumeration failure".to_owned()));
+        assert!(
+            worker
+                .view
+                .output_refresh_error
+                .as_ref()
+                .unwrap()
+                .contains("temporary enumeration failure")
+        );
+        assert_eq!(
+            worker.view.output_settings_error.as_deref(),
+            Some("The saved output could not be read")
+        );
+        worker.apply_output_refresh(Ok(Vec::new()));
+        assert!(worker.view.output_refresh_error.is_none());
+        assert_eq!(
+            worker.view.output_settings_error.as_deref(),
+            Some("The saved output could not be read")
+        );
     }
 
     #[test]

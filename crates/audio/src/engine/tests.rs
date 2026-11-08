@@ -23,6 +23,8 @@ use crate::realtime::{RealtimeRender, RenderOutcome};
 use crate::transitions::PlaybackSequence;
 use parabolica_domain::queue::RepeatMode;
 
+#[path = "output_tests.rs"]
+mod output_tests;
 #[path = "sequence_tests.rs"]
 mod sequence_tests;
 
@@ -56,6 +58,7 @@ impl Captured {
 #[derive(Clone)]
 struct Capture {
     rate: u32,
+    channels: ChannelCount,
     open_error: Arc<Mutex<Option<OutputError>>>,
     lost: Arc<Mutex<Option<OutputError>>>,
     captured: Arc<Mutex<Captured>>,
@@ -66,6 +69,7 @@ impl Capture {
     fn new(rate: u32) -> Self {
         Self {
             rate,
+            channels: ChannelCount::STEREO,
             open_error: Arc::default(),
             lost: Arc::default(),
             captured: Arc::default(),
@@ -99,9 +103,9 @@ impl Output for Capture {
                 format: OutputFormat {
                     sample: OutputSampleFormat::Float { bits: 32 },
                     rate: SampleRate::new(self.rate).unwrap(),
-                    channels: ChannelCount::STEREO,
+                    channels: self.channels,
                 },
-                channel_map: vec![0, 1],
+                channel_map: (0..self.channels.get()).collect(),
                 buffer: BufferConfig {
                     frames: BLOCK_FRAMES as u32,
                     owner: BufferOwner::App,
@@ -130,15 +134,16 @@ impl OutputStream for CaptureStream {
     fn start(&mut self, mut renderer: StreamRenderer) -> Result<(), OutputError> {
         let capture = self.capture.clone();
         let stop = self.stop.clone();
+        let channels = usize::from(self.negotiated.format.channels.get());
         self.thread = Some(std::thread::spawn(move || {
             let shared = renderer.shared().clone();
-            let mut block = vec![0.0f32; BLOCK_FRAMES * 2];
+            let mut block = vec![0.0f32; BLOCK_FRAMES * channels];
             // About five times faster than real time at 48 kHz.
             while !stop.load(Ordering::Acquire) && capture.lost.lock().unwrap().is_none() {
                 let epoch_before = shared.epoch_ack.load(Ordering::Acquire);
                 let played_before = shared.played.load(Ordering::Acquire);
                 let playing = shared.playing.load(Ordering::Acquire);
-                let outcome = renderer.render(&mut block[..], 2);
+                let outcome = renderer.render(&mut block[..], channels);
                 let epoch = shared.epoch_ack.load(Ordering::Acquire);
                 let played = shared.played.load(Ordering::Acquire);
                 let consumed = if epoch == epoch_before {
@@ -160,7 +165,7 @@ impl OutputStream for CaptureStream {
                         .lock()
                         .unwrap()
                         .blocks
-                        .push((epoch, block[..consumed * 2].to_vec()));
+                        .push((epoch, block[..consumed * channels].to_vec()));
                 }
                 std::thread::sleep(Duration::from_millis(1));
             }
@@ -804,7 +809,8 @@ fn command_acknowledgements_are_ordered_and_independent_of_current_entry_and_gen
         }
     }
     assert_eq!(acknowledgements[0].0, play);
-    assert_eq!(acknowledgements[0].1.playback.current, None);
+    assert_eq!(acknowledgements[0].1.playback.current, Some(entry));
+    assert!(acknowledgements[0].1.output.is_none());
     assert_eq!(
         acknowledgements[0].1.failure.as_ref().unwrap().entry,
         Some(entry)
