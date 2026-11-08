@@ -5233,10 +5233,13 @@ dependencies = [
 name = "parabolica-platform"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "parabolica-domain",
  "parabolica-provider-contracts",
+ "sha2 0.10.9",
  "url",
  "windows 0.62.2",
+ "winreg",
 ]
 
 [[package]]

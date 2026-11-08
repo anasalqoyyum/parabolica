@@ -57,6 +57,14 @@ pub trait OutputSample: Copy + Send + 'static {
     fn from_pcm(sample: PcmSample) -> Self;
 }
 
+impl OutputSample for f64 {
+    const SILENCE: Self = 0.0;
+
+    fn from_pcm(sample: PcmSample) -> Self {
+        sample
+    }
+}
+
 impl OutputSample for f32 {
     const SILENCE: Self = 0.0;
 

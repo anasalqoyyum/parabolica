@@ -30,6 +30,8 @@ use parabolica_domain::playback::{PlaybackSnapshot, PositionStamp};
 
 pub use controller::PlaybackEngine;
 pub use output::{NoOutput, Output, OutputError, OutputStream};
+#[cfg(all(test, windows, feature = "asio"))]
+pub(crate) use render::StreamShared;
 pub use render::{OutputSample, StreamRenderer};
 
 use crate::decode::SourceInfo;
@@ -80,6 +82,10 @@ pub struct EngineRequestId(pub(crate) u64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineEvent {
+    AsioCapabilities {
+        device: Option<OutputDeviceId>,
+        result: Result<parabolica_domain::output::AsioCapabilities, OutputError>,
+    },
     Snapshot(Box<Versioned<EngineSnapshot>>),
     Synchronized {
         request: EngineRequestId,
@@ -130,7 +136,8 @@ impl Coalesce for EngineEvent {
             EngineEvent::Snapshot(_) => Some(EngineEventKey::Snapshot),
             EngineEvent::Position(_) => Some(EngineEventKey::Position),
             EngineEvent::Underruns { .. } => Some(EngineEventKey::Underruns),
-            EngineEvent::Synchronized { .. }
+            EngineEvent::AsioCapabilities { .. }
+            | EngineEvent::Synchronized { .. }
             | EngineEvent::OutputLost { .. }
             | EngineEvent::EntryBoundary { .. }
             | EngineEvent::SourceFormatChanged { .. } => None,

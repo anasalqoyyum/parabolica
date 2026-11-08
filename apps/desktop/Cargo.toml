@@ -32,3 +32,7 @@ tempfile = "=3.27.0"
 
 [lints]
 workspace = true
+
+[features]
+default = ["asio"]
+asio = ["parabolica-audio/asio", "parabolica-platform/asio"]

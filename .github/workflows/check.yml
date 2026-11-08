@@ -41,6 +41,9 @@ jobs:
           rustc --version --verbose
           cmake --version
 
+      - name: Prepare pinned ASIO SDK
+        run: . ./scripts/setup-asio.ps1
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Lockfile is current

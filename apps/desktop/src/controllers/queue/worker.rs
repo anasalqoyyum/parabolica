@@ -196,6 +196,16 @@ impl Worker {
     fn refresh_outputs(&mut self) {
         self.output_refreshed_at = Instant::now();
         #[cfg(windows)]
+        {
+            match parabolica_platform::windows::asio::enumerate() {
+                Ok(drivers) => {
+                    self.view.asio_drivers = drivers;
+                    self.view.asio_refresh_error = None;
+                }
+                Err(error) => self.view.asio_refresh_error = Some(error),
+            }
+        }
+        #[cfg(windows)]
         self.apply_output_refresh(
             parabolica_platform::windows::audio_devices::enumerate()
                 .map_err(|error| error.to_string()),
@@ -259,6 +269,7 @@ impl Worker {
         }
         self.engine
             .select_output(self.view.output_selection.clone());
+        self.engine.inspect_output();
         if let Some(storage) = &self.storage
             && let Some(saved) = storage.load_session()?
         {
@@ -416,7 +427,16 @@ impl Worker {
                 }
             }
             Command::Volume(volume) => self.engine.set_volume(volume),
-            Command::RefreshOutputs => self.refresh_outputs(),
+            Command::RefreshOutputs => {
+                self.refresh_outputs();
+                self.engine.inspect_output();
+            }
+            Command::DriverPanel => {
+                self.paused = true;
+                self.stamp = None;
+                self.engine.driver_panel();
+                self.fence(true);
+            }
             Command::SelectOutput(selection) => {
                 if selection
                     .device
@@ -441,7 +461,10 @@ impl Worker {
                 self.view.output_settings_error = None;
                 self.paused = true;
                 self.stamp = None;
+                self.view.asio_capabilities = None;
+                self.view.asio_error = None;
                 self.engine.select_output(selection);
+                self.engine.inspect_output();
                 self.fence(true);
             }
             Command::CreatePlaylist(name) => {
@@ -871,6 +894,20 @@ impl Worker {
                 }
                 self.engine_snapshot(snapshot);
                 self.checkpoint_pending = true;
+            }
+            EngineEvent::AsioCapabilities { device, result }
+                if device == &self.view.output_selection.device =>
+            {
+                match result {
+                    Ok(capabilities) => {
+                        self.view.asio_capabilities = Some(capabilities.clone());
+                        self.view.asio_error = None;
+                    }
+                    Err(error) => {
+                        self.view.asio_capabilities = None;
+                        self.view.asio_error = Some(error.to_string());
+                    }
+                }
             }
             EngineEvent::Snapshot(snapshot) => self.engine_snapshot(&snapshot.state),
             EngineEvent::Position(stamp)
