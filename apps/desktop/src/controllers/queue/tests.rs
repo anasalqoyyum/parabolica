@@ -454,10 +454,19 @@ fn forced_termination_restores_the_last_committed_session_paused() {
     assert_eq!(saved.queue.entries.len(), 2);
     let (service, _events) = QueueService::start(Some(storage), Box::new(ClockOutput::default()));
     let state = wait(&service, |state| {
-        state.ready && state.transport == TransportState::Paused && state.entries.len() == 2
+        state.ready
+            && state.transport == TransportState::Paused
+            && state.entries.len() == 2
+            && state.generation.is_some()
     });
     assert_eq!(state.current, Some(entry));
-    assert_eq!(state.position, saved.queue.position);
+    let rate = SampleRate::new(48_000).unwrap();
+    let frame = parabolica_audio::decode::duration_to_frames(saved.queue.position, rate);
+    assert_eq!(
+        state.position,
+        parabolica_audio::decode::frames_to_duration(frame, rate)
+    );
+    assert!(state.position.abs_diff(saved.queue.position) < Duration::from_secs_f64(1. / 48_000.));
     assert_eq!(
         state
             .entries
@@ -693,4 +702,125 @@ fn one_frame_repeat_with_sqlite_cannot_starve_pause_clear_or_shutdown() {
     let saved = storage.load_session().unwrap().unwrap();
     assert_eq!(saved.queue.entries.len(), 1);
     assert!(saved.queue.current.is_some());
+}
+
+#[test]
+fn output_changes_pause_and_persist_the_selection_without_losing_queue_position() {
+    use crate::ui::listening_device::preferences::SavedOutput;
+    use parabolica_domain::output::SampleRatePolicy;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("music.wav");
+    write_wav(&path, 480_000);
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let (service, _) = QueueService::start(Some(storage.clone()), Box::new(ClockOutput::default()));
+    service.enqueue_files(vec![path], EnqueueMode::Now);
+    wait(&service, |state| {
+        state.transport == TransportState::Playing && state.position > Duration::from_millis(50)
+    });
+    let selection = OutputSelection {
+        backend: OutputBackend::WasapiExclusive,
+        device: Some(OutputDeviceId {
+            backend: OutputBackend::WasapiExclusive,
+            stable_id: "selected-headphones".into(),
+        }),
+        rate: SampleRatePolicy::Fixed(SampleRate::new(96_000).unwrap()),
+    };
+    service.select_output(selection.clone());
+    let paused = wait(&service, |state| {
+        state.output_selection == selection && state.transport == TransportState::Paused
+    });
+    assert!(paused.position > Duration::ZERO);
+    assert!(paused.history.len() == 1);
+    service.shutdown();
+    assert_eq!(
+        storage.preference::<SavedOutput>().unwrap(),
+        Some(SavedOutput(selection.clone()))
+    );
+    let (restored, _) = QueueService::start(Some(storage), Box::new(ClockOutput::default()));
+    let state = wait(&restored, |state| {
+        state.ready && state.transport == TransportState::Paused
+    });
+    assert_eq!(state.output_selection, selection);
+    assert_eq!(state.current, paused.current);
+    assert!(state.position.abs_diff(paused.position) <= Duration::from_secs_f64(1.0 / 48_000.0));
+}
+
+#[test]
+fn an_invalid_saved_output_requires_a_new_selection_before_playback() {
+    use parabolica_storage::preferences::Preference;
+    struct InvalidOutput;
+    impl Preference for InvalidOutput {
+        const KEY: &'static str = "audio.output";
+        fn encode(&self) -> String {
+            "future incompatible setting".into()
+        }
+        fn decode(_: &str) -> Option<Self> {
+            None
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    storage.save_preference(&InvalidOutput).unwrap();
+    let path = dir.path().join("music.wav");
+    write_wav(&path, 480_000);
+    let (service, _) = QueueService::start(Some(storage), Box::new(ClockOutput::default()));
+    wait(&service, |state| {
+        state.ready && state.output_settings_error.is_some()
+    });
+    service.enqueue_files(vec![path], EnqueueMode::Now);
+    let state = wait(&service, |state| {
+        state
+            .error
+            .as_ref()
+            .is_some_and(|error| error.contains("Choose an output"))
+    });
+    assert_ne!(state.transport, TransportState::Playing);
+    service.select_output(OutputSelection::default());
+    wait(&service, |state| state.output_settings_error.is_none());
+    service.resume();
+    wait(&service, |state| state.transport == TransportState::Playing);
+}
+
+#[test]
+fn an_output_retry_records_the_first_start_once_and_loss_recovery_does_not_add_a_start() {
+    struct BusyOutput {
+        busy: Arc<AtomicBool>,
+        clock: ClockOutput,
+    }
+    impl Output for BusyOutput {
+        fn open(&mut self) -> Result<Box<dyn OutputStream>, OutputError> {
+            if self.busy.load(Ordering::Acquire) {
+                Err(OutputError::Busy)
+            } else {
+                self.clock.open()
+            }
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("music.wav");
+    write_wav(&path, 480_000);
+    let storage = Storage::open(dir.path().join("app.db")).unwrap();
+    let busy = Arc::new(AtomicBool::new(true));
+    let clock = ClockOutput::default();
+    let (service, _) = QueueService::start(
+        Some(storage),
+        Box::new(BusyOutput {
+            busy: busy.clone(),
+            clock: clock.clone(),
+        }),
+    );
+    let id = service.enqueue_files(vec![path], EnqueueMode::Now)[0];
+    let blocked = wait(&service, |state| state.transport == TransportState::Blocked);
+    assert!(blocked.history.is_empty());
+    busy.store(false, Ordering::Release);
+    service.resume();
+    let playing = wait(&service, |state| state.transport == TransportState::Playing);
+    assert_eq!(playing.history.len(), 1);
+    assert_eq!(playing.history[0].record.entry, id);
+    *clock.failure.lock().unwrap() = Some(OutputError::DeviceLost);
+    wait(&service, |state| state.transport == TransportState::Blocked);
+    *clock.failure.lock().unwrap() = None;
+    service.resume();
+    let recovered = wait(&service, |state| state.transport == TransportState::Playing);
+    assert_eq!(recovered.history.len(), 1);
 }

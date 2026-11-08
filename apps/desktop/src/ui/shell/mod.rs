@@ -60,6 +60,7 @@ pub struct Shell {
     sidebar_revealed: bool,
     storage_error: Option<SharedString>,
     player: Entity<Player>,
+    listening_device: Entity<crate::ui::listening_device::ListeningDevice>,
     library: Entity<LibraryView>,
     queue: Entity<crate::ui::queue::QueueView>,
     playlists: Entity<crate::ui::playlists::PlaylistsView>,
@@ -75,6 +76,8 @@ impl Shell {
         let search =
             cx.new(|cx| InputState::new(window, cx).placeholder("Search songs, albums, artists"));
         let player = cx.new(Player::new);
+        let listening_device =
+            cx.new(|cx| crate::ui::listening_device::ListeningDevice::new(player.clone(), cx));
         let commands = player.read(cx).queue();
         let queue = cx.new(|cx| crate::ui::queue::QueueView::new(commands.clone(), cx));
         let playlists = cx.new(|cx| crate::ui::playlists::PlaylistsView::new(commands, window, cx));
@@ -111,6 +114,7 @@ impl Shell {
             sidebar_revealed: false,
             storage_error,
             player,
+            listening_device,
             library,
             queue,
             playlists,
@@ -389,6 +393,9 @@ impl Shell {
                         .child(AccountsSettings)
                         .into_any_element(),
                     SettingsSection::Library => self.library.clone().into_any_element(),
+                    SettingsSection::ListeningDevice => {
+                        self.listening_device.clone().into_any_element()
+                    }
                     SettingsSection::Appearance => AppearanceSettings.into_any_element(),
                     _ => not_available(cx),
                 }),

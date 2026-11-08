@@ -13,7 +13,7 @@ use parabolica_domain::control::{Generation, GenerationCounter, SnapshotSequence
 use parabolica_domain::format::{OutputFormat, PcmFormat, PcmSample, SampleRate};
 use parabolica_domain::gain::{GainSelection, Volume};
 use parabolica_domain::ids::QueueEntryId;
-use parabolica_domain::output::{NegotiatedOutput, PlaybackRoute};
+use parabolica_domain::output::{NegotiatedOutput, OutputSelection, PlaybackRoute};
 use parabolica_domain::playback::{PlaybackSnapshot, PositionStamp, TransportState};
 use parabolica_domain::queue::RepeatMode;
 use parabolica_domain::signal_path::{ProcessingState, SignalPath};
@@ -59,6 +59,7 @@ pub(crate) enum Command {
         position: Duration,
     },
     SetVolume(Volume),
+    SelectOutput(OutputSelection),
 }
 
 #[derive(Debug)]
@@ -175,6 +176,10 @@ impl PlaybackEngine {
         });
     }
 
+    pub fn select_output(&self, selection: OutputSelection) {
+        self.send(Command::SelectOutput(selection));
+    }
+
     pub fn set_volume(&self, volume: Volume) {
         self.send(Command::SetVolume(volume));
     }
@@ -219,6 +224,9 @@ struct Boundary {
 
 struct Controller {
     output: Box<dyn Output>,
+    selection: OutputSelection,
+    reconfigure: Option<(u64, usize, Box<SourceInfo>)>,
+    reconfigure_drained_at: Option<Instant>,
     stream: Option<ActiveStream>,
     generations: Arc<GenerationCounter>,
     sequencer: SnapshotSequencer,
@@ -230,6 +238,7 @@ struct Controller {
     sequence: Option<PlaybackSequence>,
     boundaries: VecDeque<Boundary>,
     announce_start: bool,
+    initial_boundary: bool,
     sequence_end: Option<u64>,
     volume: Volume,
     failure: Option<PlaybackFailure>,
@@ -243,6 +252,9 @@ impl Controller {
     fn new(output: Box<dyn Output>, inbox: Sender<Message>, events: Sender<EngineEvent>) -> Self {
         Self {
             output,
+            selection: OutputSelection::default(),
+            reconfigure: None,
+            reconfigure_drained_at: None,
             stream: None,
             generations: Arc::new(GenerationCounter::default()),
             sequencer: SnapshotSequencer::default(),
@@ -254,6 +266,7 @@ impl Controller {
             sequence: None,
             boundaries: VecDeque::new(),
             announce_start: false,
+            initial_boundary: false,
             sequence_end: None,
             volume: Volume::UNITY,
             failure: None,
@@ -287,6 +300,8 @@ impl Controller {
         }
         self.generations.advance();
         self.boundaries.clear();
+        self.reconfigure = None;
+        self.reconfigure_drained_at = None;
         self.stream = None;
     }
 
@@ -332,6 +347,18 @@ impl Controller {
                 if generation.is_none_or(|generation| self.generations.is_current(generation)) {
                     self.seek(entry, position);
                 }
+            }
+            Command::SelectOutput(selection) => {
+                self.close_stream();
+                self.selection = selection;
+                self.want_playing = false;
+                self.failure = None;
+                self.transport = if self.current.is_some() {
+                    TransportState::Paused
+                } else {
+                    TransportState::Stopped
+                };
+                self.publish();
             }
             Command::SetVolume(volume) => {
                 self.volume = volume;
@@ -386,27 +413,52 @@ impl Controller {
                 return self.fail(Some(entry), None, PlaybackError::NotLocal);
             }
         };
-        if let Err(error) = self.ensure_stream() {
-            self.current = None;
-            return self.fail(Some(entry), Some(path), PlaybackError::Output(error));
+        self.set_playing(false);
+        let info = match crate::decode::Decoder::open(&path) {
+            Ok(decoder) => decoder.info().clone(),
+            Err(error) => {
+                self.stop_playback();
+                return self.fail(
+                    Some(entry),
+                    Some(path),
+                    PlaybackError::Decode(error.to_string()),
+                );
+            }
+        };
+        if self.stream.as_ref().is_some_and(|stream| {
+            self.selection
+                .needs_new_stream(&info.format, &stream.negotiated)
+        }) {
+            self.close_stream();
         }
         let generation = self.generations.advance();
         self.set_playing(false);
         self.boundaries.clear();
         self.sequence_end = None;
+        self.reconfigure = None;
+        self.reconfigure_drained_at = None;
         self.announce_start = announce_start;
+        self.initial_boundary = true;
         self.sequence = Some(sequence.clone());
         self.current = Some(Current {
             entry,
             source,
             path,
-            info: None,
-            base_frame: 0,
+            info: Some(info.clone()),
+            base_frame: crate::decode::duration_to_frames(position, info.format.rate),
             primed: false,
             ended: false,
             output_start: 0,
             requested_position: position,
         });
+        if let Err(error) = self.ensure_stream(&info.format) {
+            self.want_playing = false;
+            return self.fail(
+                Some(entry),
+                self.current.as_ref().map(|current| current.path.clone()),
+                PlaybackError::Output(error),
+            );
+        }
         self.want_playing = !paused;
         self.transport = if paused {
             TransportState::Paused
@@ -520,6 +572,13 @@ impl Controller {
                 });
                 self.apply_boundaries();
             }
+            WorkerReport::Reconfigure {
+                output_frame,
+                index,
+                info,
+            } => {
+                self.reconfigure = Some((output_frame, index, info));
+            }
             WorkerReport::Finished { output_frame } => {
                 self.sequence_end = Some(output_frame);
             }
@@ -539,26 +598,17 @@ impl Controller {
                 self.publish();
             }
             WorkerReport::Failed(error) => {
-                if let Some(current) = &mut self.current {
-                    current.primed = false;
-                    if let (PlaybackError::Output(_), Some(stream), Some(info)) =
-                        (&error, &self.stream, &current.info)
-                    {
-                        current.base_frame += convert_frames(
-                            stream
-                                .shared
-                                .played_in(self.generations.current().get())
-                                .saturating_sub(current.output_start),
-                            stream.negotiated.format.rate,
-                            info.format.rate,
-                        );
-                    } else {
+                if matches!(error, PlaybackError::Output(_)) {
+                    self.close_stream();
+                } else {
+                    if let Some(current) = &mut self.current {
+                        current.primed = false;
                         current.base_frame = 0;
                     }
+                    self.boundaries.clear();
+                    self.generations.advance();
+                    self.set_playing(false);
                 }
-                self.boundaries.clear();
-                self.generations.advance();
-                self.set_playing(false);
                 self.want_playing = false;
                 let current = self.current.as_ref().expect("current was checked");
                 self.fail(Some(current.entry), Some(current.path.clone()), error);
@@ -578,14 +628,12 @@ impl Controller {
             .front()
             .is_some_and(|boundary| boundary.output_frame <= played)
         {
-            let initial = self
-                .current
-                .as_ref()
-                .is_none_or(|current| current.info.is_none());
+            let initial = self.initial_boundary;
             if !initial && played == 0 && self.transport != TransportState::Playing {
                 break;
             }
             let boundary = self.boundaries.pop_front().expect("front was checked");
+            self.initial_boundary = false;
             let Some(sequence) = &self.sequence else {
                 break;
             };
@@ -691,6 +739,43 @@ impl Controller {
 
         let generation = self.generations.current().get();
         let drained = stream.shared.drained.load(Ordering::Acquire) == generation;
+        if let Some((end, _, _)) = &self.reconfigure
+            && drained
+            && stream.shared.played_in(generation) >= *end
+            && self.want_playing
+        {
+            let drain_time = stream.negotiated.reported_latency.unwrap_or_default()
+                + stream.negotiated.buffer_duration();
+            if self
+                .reconfigure_drained_at
+                .get_or_insert_with(Instant::now)
+                .elapsed()
+                < drain_time
+            {
+                return;
+            }
+            let (end, index, info) = self.reconfigure.take().expect("checked");
+            if let Some(previous) = self
+                .current
+                .as_ref()
+                .and_then(|current| current.info.as_ref())
+            {
+                let _ = self.events.send(EngineEvent::SourceFormatChanged {
+                    generation: self.generations.current(),
+                    entry: self.sequence.as_ref().expect("active sequence").entries[index].0,
+                    output_frame: end,
+                    previous_layout: previous.channel_layout.clone(),
+                    next_layout: info.channel_layout.clone(),
+                    previous: previous.format.clone(),
+                    next: info.format.clone(),
+                });
+            }
+            let sequence = self.sequence.clone().expect("active sequence");
+            self.close_stream();
+            self.load_sequence(sequence, index, Duration::ZERO, false, true);
+            return;
+        }
+
         if let Some(current) = &mut self.current
             && self.transport == TransportState::Playing
             && current.primed
@@ -771,17 +856,25 @@ impl Controller {
         }
         self.generations.advance();
         self.boundaries.clear();
+        self.reconfigure = None;
+        self.reconfigure_drained_at = None;
         self.stream = None;
         self.idle_since = None;
         self.set_playing(false);
     }
 
-    fn ensure_stream(&mut self) -> Result<(), OutputError> {
+    fn ensure_stream(
+        &mut self,
+        source: &parabolica_domain::format::SourceFormat,
+    ) -> Result<(), OutputError> {
         if self.stream.is_some() {
             return Ok(());
         }
-        let mut stream = self.output.open()?;
+        let mut stream = self.output.open_for(&self.selection, source)?;
         let negotiated = stream.negotiated().clone();
+        if self.selection.device.is_none() {
+            self.selection.device = Some(negotiated.device.clone());
+        }
         let OutputFormat { rate, channels, .. } = negotiated.format;
         let channels = usize::from(channels.get());
         let ring_frames = (RING_SECONDS * f64::from(rate.hz())) as usize;
@@ -792,10 +885,10 @@ impl Controller {
         let worker = WorkerHandle::spawn(
             producer,
             shared.clone(),
-            rate.hz(),
-            channels,
             self.generations.clone(),
             self.inbox.clone(),
+            self.selection.clone(),
+            negotiated.clone(),
         );
         self.last_underruns = 0;
         self.stream = Some(ActiveStream {

@@ -14,6 +14,7 @@ use parabolica_audio::engine::{EngineEvent, Output, PlaybackEngine};
 use parabolica_domain::control::Generation;
 use parabolica_domain::gain::Volume;
 use parabolica_domain::ids::{MediaFileId, PlaylistEntryId, PlaylistId, QueueEntryId};
+use parabolica_domain::output::{AudioEndpoint, OutputSelection};
 use parabolica_domain::playback::TransportState;
 use parabolica_domain::queue::{QueueCommand, QueueEntry, RepeatMode};
 use parabolica_domain::source::PlayableSource;
@@ -66,6 +67,10 @@ pub struct HistoryView {
 #[derive(Debug, Clone)]
 pub struct QueueSnapshot {
     pub revision: u64,
+    pub output_selection: OutputSelection,
+    pub endpoints: Vec<AudioEndpoint>,
+    pub output_settings_error: Option<String>,
+    pub output_refresh_error: Option<String>,
     /// Entries in effective playback order, so move indices match the displayed rows.
     pub entries: Vec<QueueEntryView>,
     pub current: Option<QueueEntryId>,
@@ -88,6 +93,10 @@ impl Default for QueueSnapshot {
     fn default() -> Self {
         Self {
             revision: 0,
+            output_selection: OutputSelection::default(),
+            endpoints: Vec::new(),
+            output_settings_error: None,
+            output_refresh_error: None,
             entries: Vec::new(),
             current: None,
             position: Duration::ZERO,
@@ -140,6 +149,8 @@ enum Command {
         position: Duration,
     },
     Volume(Volume),
+    SelectOutput(OutputSelection),
+    RefreshOutputs,
     CreatePlaylist(String),
     RenamePlaylist(PlaylistId, String),
     DeletePlaylist(PlaylistId),
@@ -185,6 +196,14 @@ impl QueueService {
             },
             receiver,
         )
+    }
+
+    pub fn select_output(&self, selection: OutputSelection) {
+        self.send(Command::SelectOutput(selection));
+    }
+
+    pub fn refresh_outputs(&self) {
+        self.send(Command::RefreshOutputs);
     }
 
     pub fn shutdown(&self) {

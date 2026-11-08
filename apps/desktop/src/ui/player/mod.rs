@@ -170,6 +170,10 @@ impl Player {
         self.commands.snapshot().transport
     }
 
+    pub fn output_snapshot(&self) -> Option<&EngineSnapshot> {
+        self.snapshot.as_ref()
+    }
+
     pub fn queue(&self) -> QueueService {
         self.commands.queue().clone()
     }

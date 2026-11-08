@@ -1,6 +1,7 @@
 //! The boundary between the engine and an output backend.
 
-use parabolica_domain::output::NegotiatedOutput;
+use parabolica_domain::format::SourceFormat;
+use parabolica_domain::output::{NegotiatedOutput, OutputSelection};
 
 use super::render::StreamRenderer;
 
@@ -8,6 +9,14 @@ use super::render::StreamRenderer;
 pub trait Output: Send + 'static {
     /// Open a stream on the backend's device and negotiate its format without starting it.
     fn open(&mut self) -> Result<Box<dyn OutputStream>, OutputError>;
+
+    fn open_for(
+        &mut self,
+        _selection: &OutputSelection,
+        _source: &SourceFormat,
+    ) -> Result<Box<dyn OutputStream>, OutputError> {
+        self.open()
+    }
 }
 
 /// An open device stream. Dropping it stops the stream and joins its device thread.
@@ -28,8 +37,12 @@ pub enum OutputError {
     NoDevice,
     #[error("the audio device was removed or changed")]
     DeviceLost,
-    #[error("the device's shared format is not supported: {0}")]
+    #[error("the requested output format is not supported: {0}")]
     UnsupportedFormat(String),
+    #[error("the selected endpoint is busy; close its other player or choose WASAPI Shared")]
+    Busy,
+    #[error("the selected output backend is not available in this build")]
+    BackendUnavailable,
     #[error("the audio device stopped responding")]
     Stalled,
     #[error("audio output failed: {0}")]

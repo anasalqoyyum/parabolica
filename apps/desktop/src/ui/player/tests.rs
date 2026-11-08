@@ -66,7 +66,7 @@ fn a_failed_output_shows_an_error_and_the_player_stays_usable(cx: &mut TestAppCo
     }
     assert_eq!(label.as_deref(), Some(expected));
     cx.update_window(window, |_, window, _| {
-        assert_eq!(window.find("now-playing").value(), Some("Nothing playing"));
+        assert_eq!(window.find("now-playing").value(), Some("s24_48000.flac"));
         assert_ne!(window.find("player-play").disabled(), Some(true));
         assert_ne!(window.find("open-file").disabled(), Some(true));
     })

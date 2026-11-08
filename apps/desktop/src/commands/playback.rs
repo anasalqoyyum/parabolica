@@ -62,7 +62,7 @@ impl PlaybackCommands {
 
 #[cfg(windows)]
 fn default_output() -> Box<dyn Output> {
-    Box::new(parabolica_audio::output::wasapi_shared::WasapiShared)
+    Box::new(parabolica_audio::output::wasapi_shared::WasapiOutput)
 }
 #[cfg(not(windows))]
 fn default_output() -> Box<dyn Output> {

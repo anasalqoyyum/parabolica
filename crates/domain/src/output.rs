@@ -31,6 +31,80 @@ pub struct OutputDeviceId {
     pub stable_id: String,
 }
 
+/// Exclusive output requests the source rate or this explicitly selected fixed rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SampleRatePolicy {
+    #[default]
+    FollowSource,
+    Fixed(crate::format::SampleRate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutputSelection {
+    pub backend: OutputBackend,
+    /// None resolves the Windows default once. Subsequent opens retain that endpoint.
+    pub device: Option<OutputDeviceId>,
+    pub rate: SampleRatePolicy,
+}
+
+impl Default for OutputSelection {
+    fn default() -> Self {
+        Self {
+            backend: OutputBackend::WasapiShared,
+            device: None,
+            rate: SampleRatePolicy::FollowSource,
+        }
+    }
+}
+
+impl OutputSelection {
+    pub fn needs_new_stream(
+        &self,
+        source: &crate::format::SourceFormat,
+        output: &NegotiatedOutput,
+    ) -> bool {
+        if self.backend != OutputBackend::WasapiExclusive {
+            return false;
+        }
+        let rate = match self.rate {
+            SampleRatePolicy::FollowSource => source.rate,
+            SampleRatePolicy::Fixed(rate) => rate,
+        };
+        let precision = match (source.sample, output.format.sample) {
+            (
+                Some(crate::format::SourceSampleFormat::Int { bits }),
+                crate::format::OutputSampleFormat::Int { valid_bits, .. },
+            ) => bits > valid_bits,
+            (
+                Some(crate::format::SourceSampleFormat::Float { .. }),
+                crate::format::OutputSampleFormat::Int { .. },
+            ) => true,
+            (
+                Some(crate::format::SourceSampleFormat::Int { bits }),
+                crate::format::OutputSampleFormat::Float { bits: 32 },
+            ) => bits > 24,
+            (
+                Some(crate::format::SourceSampleFormat::Float { bits: source_bits }),
+                crate::format::OutputSampleFormat::Float { bits },
+            ) => source_bits > bits,
+            _ => false,
+        };
+        rate != output.format.rate || source.channels != output.format.channels || precision
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioEndpoint {
+    pub available: bool,
+    pub stable_id: String,
+    pub name: String,
+    pub is_default: bool,
+    pub mix_format: Option<OutputFormat>,
+    /// Exact stereo formats accepted by IsFormatSupported in Exclusive mode.
+    pub exclusive_formats: Vec<OutputFormat>,
+    pub capability_error: Option<String>,
+}
+
 /// Who controls the buffer size. ASIO drivers often own it; the app must then report it rather
 /// than offer an ineffective control.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

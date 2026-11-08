@@ -23,6 +23,8 @@ use crate::realtime::{RealtimeRender, RenderOutcome};
 use crate::transitions::PlaybackSequence;
 use parabolica_domain::queue::RepeatMode;
 
+#[path = "output_tests.rs"]
+mod output_tests;
 #[path = "sequence_tests.rs"]
 mod sequence_tests;
 
@@ -804,7 +806,8 @@ fn command_acknowledgements_are_ordered_and_independent_of_current_entry_and_gen
         }
     }
     assert_eq!(acknowledgements[0].0, play);
-    assert_eq!(acknowledgements[0].1.playback.current, None);
+    assert_eq!(acknowledgements[0].1.playback.current, Some(entry));
+    assert!(acknowledgements[0].1.output.is_none());
     assert_eq!(
         acknowledgements[0].1.failure.as_ref().unwrap().entry,
         Some(entry)

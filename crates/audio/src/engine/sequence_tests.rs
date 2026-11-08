@@ -1,6 +1,6 @@
 use super::*;
 
-fn write_wav(path: &Path, rate: u32, channels: u16, samples: &[i16]) {
+pub(super) fn write_wav(path: &Path, rate: u32, channels: u16, samples: &[i16]) {
     let bytes = samples.len() as u32 * 2;
     let mut data = Vec::new();
     data.extend_from_slice(b"RIFF");
@@ -93,7 +93,10 @@ fn samples(frames: usize, channels: u16) -> Vec<i16> {
         .collect()
 }
 
-fn sequence(paths: &[PathBuf], repeat: RepeatMode) -> (PlaybackSequence, Vec<QueueEntryId>) {
+pub(super) fn sequence(
+    paths: &[PathBuf],
+    repeat: RepeatMode,
+) -> (PlaybackSequence, Vec<QueueEntryId>) {
     let entries: Vec<_> = paths
         .iter()
         .map(|path| {

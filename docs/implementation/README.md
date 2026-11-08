@@ -13,6 +13,8 @@ Read [the agent workflow](AGENT_WORKFLOW.md) before assigning work. Issue status
 - [#6 Implement folder indexing and the local collection UI](https://github.com/anasalqoyyum/parabolica/issues/6): [implementation and verification](local-collection.md)
 - [#7 Implement queues, playlists, history and session restoration](https://github.com/anasalqoyyum/parabolica/issues/7): [implementation and verification](queue-and-session.md)
 
+- [#8 Implement WASAPI Exclusive and listening-device controls](https://github.com/anasalqoyyum/parabolica/issues/8): [implementation and verification](wasapi-and-listening-device.md)
+
 ## Dependencies and parallel work
 
 The table lists direct blockers. Linked parallel pairings are conditional on both tasks' prerequisites and exclusive file ownership. Tasks absent from a pairing should run sequentially unless their owners establish a safe boundary.
