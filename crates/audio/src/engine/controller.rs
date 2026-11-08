@@ -60,6 +60,8 @@ pub(crate) enum Command {
     },
     SetVolume(Volume),
     SelectOutput(OutputSelection),
+    InspectOutput,
+    DriverPanel,
 }
 
 #[derive(Debug)]
@@ -96,6 +98,14 @@ impl PlaybackEngine {
             },
             receiver,
         )
+    }
+
+    pub fn inspect_output(&self) {
+        self.send(Command::InspectOutput);
+    }
+
+    pub fn driver_panel(&self) {
+        self.send(Command::DriverPanel);
     }
 
     fn send(&self, command: Command) {
@@ -360,6 +370,26 @@ impl Controller {
                 };
                 self.publish();
             }
+            Command::InspectOutput => self.inspect_output(),
+            Command::DriverPanel => {
+                self.close_stream();
+                self.want_playing = false;
+                self.transport = if self.current.is_some() {
+                    TransportState::Paused
+                } else {
+                    TransportState::Stopped
+                };
+                self.publish();
+                if let Err(error) = self.output.driver_panel(&self.selection) {
+                    self.failure = Some(PlaybackFailure {
+                        entry: self.current.as_ref().map(|current| current.entry),
+                        path: self.current.as_ref().map(|current| current.path.clone()),
+                        error: PlaybackError::Output(error),
+                    });
+                }
+                self.inspect_output();
+                self.publish();
+            }
             Command::SetVolume(volume) => {
                 self.volume = volume;
                 if let Some(stream) = &self.stream {
@@ -371,6 +401,22 @@ impl Controller {
                 self.publish();
             }
         }
+    }
+
+    fn inspect_output(&mut self) {
+        if self.selection.backend != parabolica_domain::output::OutputBackend::Asio {
+            return;
+        }
+        let result = self
+            .stream
+            .as_ref()
+            .and_then(|stream| stream.stream.asio_capabilities())
+            .map(Ok)
+            .unwrap_or_else(|| self.output.asio_capabilities(&self.selection));
+        let _ = self.events.send(EngineEvent::AsioCapabilities {
+            device: self.selection.device.clone(),
+            result,
+        });
     }
 
     /// Stop and forget the current entry. The worker flushes anything already buffered.
@@ -872,6 +918,12 @@ impl Controller {
         }
         let mut stream = self.output.open_for(&self.selection, source)?;
         let negotiated = stream.negotiated().clone();
+        if let Some(capabilities) = stream.asio_capabilities() {
+            let _ = self.events.send(EngineEvent::AsioCapabilities {
+                device: Some(negotiated.device.clone()),
+                result: Ok(capabilities),
+            });
+        }
         if self.selection.device.is_none() {
             self.selection.device = Some(negotiated.device.clone());
         }
@@ -1003,7 +1055,13 @@ impl Controller {
             channels: info.format.channels,
         };
         let mut output = stream.negotiated.clone();
-        output.channel_map = (0..info.format.channels.get()).collect();
+        if output.device.backend == parabolica_domain::output::OutputBackend::Asio {
+            output
+                .channel_map
+                .truncate(usize::from(info.format.channels.get()));
+        } else {
+            output.channel_map = (0..info.format.channels.get()).collect();
+        }
         PlaybackRoute::native(current.source.clone(), pcm, output).ok()
     }
 }

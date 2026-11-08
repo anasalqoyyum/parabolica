@@ -1,0 +1,34 @@
+name: Windows ASIO
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asio:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Prepare hash-verified SDK 2.3.4
+        run: . ./scripts/setup-asio.ps1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: asio-sdk-2.3.4
+      - name: ASIO callback and driver fault fixtures
+        run: cargo test -p parabolica-audio -p parabolica-platform --features parabolica-audio/asio --locked
+      - name: ASIO desktop build
+        run: cargo build -p parabolica-desktop --features asio --locked
+      - name: Explicit WASAPI-only build
+        run: cargo check -p parabolica-desktop --no-default-features --locked

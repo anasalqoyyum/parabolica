@@ -60,6 +60,10 @@ impl Output for SelectedCapture {
             stable_id: "resolved-default".into(),
         });
         negotiated.device.backend = selection.backend;
+        if selection.backend == OutputBackend::Asio {
+            negotiated.channel_map = selection.asio.channels.clone();
+            negotiated.buffer.owner = BufferOwner::Driver;
+        }
         Ok(Box::new(SelectedStream { inner, negotiated }))
     }
 }
@@ -85,6 +89,7 @@ fn exclusive(rate: SampleRatePolicy) -> OutputSelection {
             backend: OutputBackend::WasapiExclusive,
             stable_id: "headphones".into(),
         }),
+        asio: Default::default(),
     }
 }
 
@@ -322,45 +327,48 @@ fn unsupported_next_rate_blocks_at_the_next_entry_without_playing_it_at_the_old_
 }
 
 #[test]
-fn exclusive_compatible_short_entries_deliver_exact_pcm_on_one_stream() {
-    let directory = tempfile::tempdir().unwrap();
-    let lengths = [1, 7, 255, 44_100, 1, 4_709];
-    let expected: Vec<i16> = (0..lengths.iter().sum::<usize>() * 2)
-        .map(|index| (index * 37 % 20_000) as i16 - 10_000)
-        .collect();
-    let mut offset = 0;
-    let paths: Vec<_> = lengths
-        .iter()
-        .enumerate()
-        .map(|(index, frames)| {
-            let path = directory.path().join(format!("{index}.wav"));
-            let end = offset + frames * 2;
-            super::sequence_tests::write_wav(&path, 44_100, 2, &expected[offset..end]);
-            offset = end;
-            path
-        })
-        .collect();
-    let (mut harness, requests) = selected(vec![44_100]);
-    harness
-        .engine
-        .select_output(exclusive(SampleRatePolicy::FollowSource));
-    let (sequence, ids) = super::sequence_tests::sequence(&paths, RepeatMode::Off);
-    harness
-        .engine
-        .start_sequence(sequence, ids[0], Duration::ZERO, false)
-        .unwrap();
-    let ended = harness.wait("short Exclusive sequence ended", |state| {
-        state.playback.current == ids.last().copied()
-            && state.playback.transport == TransportState::Stopped
-    });
-    assert!(ended.failure.is_none());
-    assert_eq!(ended.underruns, 0);
-    assert_eq!(requests.lock().unwrap().len(), 1);
-    let pcm: Vec<f32> = expected
-        .iter()
-        .map(|sample| f32::from(*sample) / 32768.)
-        .collect();
-    assert_eq!(harness.capture.epoch(ended.playback.generation.get()), pcm);
+fn direct_compatible_short_entries_deliver_exact_pcm_on_one_stream() {
+    for backend in [OutputBackend::WasapiExclusive, OutputBackend::Asio] {
+        let directory = tempfile::tempdir().unwrap();
+        let lengths = [1, 7, 255, 44_100, 1, 4_709];
+        let expected: Vec<i16> = (0..lengths.iter().sum::<usize>() * 2)
+            .map(|index| (index * 37 % 20_000) as i16 - 10_000)
+            .collect();
+        let mut offset = 0;
+        let paths: Vec<_> = lengths
+            .iter()
+            .enumerate()
+            .map(|(index, frames)| {
+                let path = directory.path().join(format!("{index}.wav"));
+                let end = offset + frames * 2;
+                super::sequence_tests::write_wav(&path, 44_100, 2, &expected[offset..end]);
+                offset = end;
+                path
+            })
+            .collect();
+        let (mut harness, requests) = selected(vec![44_100]);
+        let mut selection = exclusive(SampleRatePolicy::FollowSource);
+        selection.backend = backend;
+        selection.device.as_mut().unwrap().backend = backend;
+        harness.engine.select_output(selection);
+        let (sequence, ids) = super::sequence_tests::sequence(&paths, RepeatMode::Off);
+        harness
+            .engine
+            .start_sequence(sequence, ids[0], Duration::ZERO, false)
+            .unwrap();
+        let ended = harness.wait("short Exclusive sequence ended", |state| {
+            state.playback.current == ids.last().copied()
+                && state.playback.transport == TransportState::Stopped
+        });
+        assert!(ended.failure.is_none());
+        assert_eq!(ended.underruns, 0);
+        assert_eq!(requests.lock().unwrap().len(), 1);
+        let pcm: Vec<f32> = expected
+            .iter()
+            .map(|sample| f32::from(*sample) / 32768.)
+            .collect();
+        assert_eq!(harness.capture.epoch(ended.playback.generation.get()), pcm);
+    }
 }
 
 #[test]
@@ -431,5 +439,104 @@ fn initial_exclusive_load_rejects_a_file_replaced_during_output_negotiation() {
                 .contains("changed while opening")
         );
         assert_eq!(harness.capture.total_frames(), 0);
+    }
+}
+
+#[test]
+fn asio_preserves_identity_mapping_and_position_through_busy_reset_and_retry() {
+    let (mut harness, requests) = selected(vec![48000]);
+    let mut selection = exclusive(SampleRatePolicy::FollowSource);
+    selection.backend = OutputBackend::Asio;
+    selection.device = Some(OutputDeviceId {
+        backend: OutputBackend::Asio,
+        stable_id: "{fixture-driver}".to_owned(),
+    });
+    selection.asio.channels = vec![3, 1];
+    harness.engine.select_output(selection);
+    *harness.capture.open_error.lock().unwrap() = Some(OutputError::Busy);
+    let entry = harness.play(&fixture("flac/s24_48000.flac"));
+    let blocked = harness.wait_transport(TransportState::Blocked);
+    assert!(matches!(
+        blocked.failure.unwrap().error,
+        PlaybackError::Output(OutputError::Busy)
+    ));
+    *harness.capture.open_error.lock().unwrap() = None;
+    harness.engine.resume();
+    let playing = harness.wait_transport(TransportState::Playing);
+    let output = playing.output.unwrap();
+    assert_eq!(output.device.backend, OutputBackend::Asio);
+    assert_eq!(output.channel_map, [3, 1]);
+    assert_eq!(output.buffer.owner, BufferOwner::Driver);
+    if let Some(parabolica_domain::output::PlaybackRoute::Native { output, .. }) =
+        playing.playback.route
+    {
+        assert_eq!(output.channel_map, [3, 1]);
+    } else {
+        panic!("native ASIO route missing");
+    }
+    harness.drain_for(Duration::from_millis(30));
+    for error in [
+        OutputError::DriverReset("fixture reset".to_owned()),
+        OutputError::NoDevice,
+        OutputError::Stalled,
+    ] {
+        *harness.capture.lost.lock().unwrap() = Some(error);
+        let blocked = harness.wait_transport(TransportState::Blocked);
+        let position = blocked.playback.position.unwrap().frame;
+        assert_eq!(blocked.playback.current, Some(entry));
+        assert!(blocked.output.is_none());
+        let attempts = requests.lock().unwrap().len();
+        harness.drain_for(Duration::from_millis(30));
+        assert_eq!(attempts, requests.lock().unwrap().len());
+        harness.engine.resume();
+        let playing = harness.wait_transport(TransportState::Playing);
+        assert!(playing.playback.position.unwrap().frame >= position);
+        assert_eq!(playing.output.unwrap().device.stable_id, "{fixture-driver}");
+    }
+    assert!(
+        requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|(selection, _)| selection.backend == OutputBackend::Asio)
+    );
+}
+
+#[test]
+fn asio_rate_change_reopens_and_unsupported_rate_never_plays_at_previous_rate() {
+    for supported in [vec![44100, 96000], vec![44100]] {
+        let (mut harness, requests) = selected(supported.clone());
+        let mut selection = exclusive(SampleRatePolicy::FollowSource);
+        selection.backend = OutputBackend::Asio;
+        selection.device = Some(OutputDeviceId {
+            backend: OutputBackend::Asio,
+            stable_id: "{fixture-driver}".to_owned(),
+        });
+        harness.engine.select_output(selection);
+        let paths = [
+            fixture("flac/s24_44100.flac"),
+            fixture("flac/s24_96000.flac"),
+        ];
+        let (sequence, ids) = super::sequence_tests::sequence(&paths, RepeatMode::Off);
+        harness
+            .engine
+            .start_sequence(sequence, ids[0], Duration::ZERO, false)
+            .unwrap();
+        let final_state = harness.wait("ASIO rate boundary", |state| {
+            state.playback.current == Some(ids[1])
+                && matches!(
+                    state.playback.transport,
+                    TransportState::Blocked | TransportState::Stopped
+                )
+        });
+        assert_eq!(requests.lock().unwrap().len(), 2);
+        if supported.len() == 1 {
+            assert!(final_state.output.is_none());
+            assert!(final_state.failure.is_some());
+            assert_eq!(final_state.playback.position.unwrap().frame, 0);
+        } else {
+            assert!(final_state.failure.is_none());
+            assert_eq!(final_state.output.unwrap().format.rate.hz(), 96000);
+        }
     }
 }

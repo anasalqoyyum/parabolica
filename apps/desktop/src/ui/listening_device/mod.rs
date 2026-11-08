@@ -3,11 +3,11 @@
 pub mod asio;
 pub mod preferences;
 
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::Button;
 use gpui_kit::component::radio::Radio;
-use gpui_kit::component::{ActiveTheme as _, Disableable as _, StyledExt as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, StyledExt as _, h_flex, v_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{App, Context, Entity, Render, Role, Task, Window, div, px};
+use gpui_kit::{App, Context, Entity, Render, Role, Task, TestSupportExt as _, Window, div, px};
 use parabolica_domain::format::{OutputSampleFormat, SampleRate};
 use parabolica_domain::output::{OutputBackend, OutputDeviceId, OutputSelection, SampleRatePolicy};
 use std::time::Duration;
@@ -49,9 +49,12 @@ impl ListeningDevice {
             if matches!(
                 device.backend,
                 OutputBackend::WasapiShared | OutputBackend::WasapiExclusive
+            ) && matches!(
+                backend,
+                OutputBackend::WasapiShared | OutputBackend::WasapiExclusive
             ) {
                 device.backend = backend;
-            } else {
+            } else if device.backend != backend {
                 selection.device = None;
             }
         }
@@ -88,7 +91,7 @@ impl Render for ListeningDevice {
         let mut page = v_flex().id("listening-device").gap_6().min_w_0()
             .when_some(failure, |view, failure| {
                 let queue = self.queue.clone();
-                view.child(warning(failure.error.to_string(), cx)).child(
+                view.child(warning("output-failure", failure.error.to_string(), cx)).child(
                     Button::new("retry-output")
                         .label("Retry selected output")
                         .on_click(move |_, _, _| {
@@ -101,8 +104,8 @@ impl Render for ListeningDevice {
                 .child(v_flex().id("output-backends").role(Role::List).aria_label("Output backend")
                     .children([(OutputBackend::WasapiShared, "WASAPI Shared", "output-shared"), (OutputBackend::WasapiExclusive, "WASAPI Exclusive", "output-exclusive")].map(|(backend, label, id)|
                         NavItem::new(id, label, selection.backend == backend, cx.listener(move |this, _, _, _| this.select_backend(backend)))))
-                    .child(Button::new("output-asio").ghost().label("ASIO unavailable in this build").disabled(true))))
-            .child(v_flex().gap_2()
+                    .child(NavItem::new("output-asio", if cfg!(all(windows, feature = "asio")) { "ASIO" } else { "ASIO unavailable in this build" }, selection.backend == OutputBackend::Asio, cx.listener(|this, _, _, _| this.select_backend(OutputBackend::Asio))))))
+            .when(wasapi, |page| page.child(v_flex().gap_2()
                 .child(h_flex().flex_wrap().gap_3().justify_between().child(heading("Endpoint"))
                     .child(Button::new("refresh-endpoints").label("Refresh devices").on_click(move |_, _, _| queue.refresh_outputs())))
                 .child(v_flex().id("output-endpoints").role(Role::List).aria_label("Endpoints")
@@ -116,11 +119,14 @@ impl Render for ListeningDevice {
                         NavItem::new(format!("endpoint-{index}"), label, chosen, move |_, _, _| queue.select_output(next.clone()))
                     })))
                 .when(wasapi && !state.endpoints.iter().any(|endpoint| endpoint.available), |view| view.child(value("No active audio endpoints")))
-                .when(missing, |view| view.child(warning(format!("Selected endpoint unavailable: {}. Reconnect it and refresh, or select another endpoint.", selected.map_or_else(|| selection.device.as_ref().expect("selected").stable_id.clone(), |endpoint| endpoint.name.clone())), cx))))
-            .when_some(state.output_settings_error.clone(), |view, error| view.child(warning(error, cx)))
-            .when_some(state.output_refresh_error.clone(), |view, error| view.child(warning(error, cx)))
-            .when(!state.storage_available, |view| view.child(warning("Output choices cannot be saved without the library database.".to_owned(), cx)));
+                .when(missing, |view| view.child(warning("output-endpoint-missing", format!("Selected endpoint unavailable: {}. Reconnect it and refresh, or select another endpoint.", selected.map_or_else(|| selection.device.as_ref().expect("selected").stable_id.clone(), |endpoint| endpoint.name.clone())), cx)))))
+            .when_some(state.output_settings_error.clone(), |view, error| view.child(warning("output-settings-error", error, cx)))
+            .when_some(state.output_refresh_error.clone(), |view, error| view.child(warning("output-refresh-error", error, cx)))
+            .when(!state.storage_available, |view| view.child(warning("output-storage-unavailable", "Output choices cannot be saved without the library database.".to_owned(), cx)));
 
+        if selection.backend == OutputBackend::Asio {
+            page = page.child(asio::controls(&state, &selection, &self.queue, cx));
+        }
         if let Some(endpoint) = selected.filter(|endpoint| endpoint.available) {
             let mix = endpoint
                 .mix_format
@@ -145,7 +151,7 @@ impl Render for ListeningDevice {
                     let rates: std::collections::BTreeSet<_> = endpoint.exclusive_formats.iter().map(|format| format.rate.hz()).collect();
                     format!("Queried stereo Exclusive rates: {}", if rates.is_empty() { "None reported".to_owned() } else { rates.iter().map(u32::to_string).collect::<Vec<_>>().join(", ") })
                 } else { "Shared uses the endpoint's current mix rate. The app resamples when needed.".to_owned() }))
-                .when_some(endpoint.capability_error.clone(), |view, error| view.child(warning(format!("Capabilities unavailable: {error}"), cx))));
+                .when_some(endpoint.capability_error.clone(), |view, error| view.child(warning("output-endpoint-capabilities", format!("Capabilities unavailable: {error}"), cx))));
         }
         let mut active = v_flex().gap_2().child(heading("Current stream"));
         if let Some(output) = output {
@@ -162,9 +168,14 @@ impl Render for ListeningDevice {
                     sample_label(output.format.sample)
                 )))
                 .child(value(format!(
-                    "Buffer: {} frames · {:.2} ms",
+                    "Buffer: {} frames · {:.2} ms · {}",
                     output.buffer.frames,
-                    output.buffer_duration().as_secs_f64() * 1000.
+                    output.buffer_duration().as_secs_f64() * 1000.,
+                    if output.buffer.owner == parabolica_domain::output::BufferOwner::Driver {
+                        "Driver-managed"
+                    } else {
+                        "App-managed"
+                    }
                 )))
                 .child(value(format!(
                     "Reported output latency: {}",
@@ -188,6 +199,14 @@ impl Render for ListeningDevice {
                         "Active; downstream processing unverified"
                     } else {
                         "Bypassed; device processing unverified"
+                    }
+                )))
+                .child(value(format!(
+                    "Windows session volume: {}",
+                    if output.device.backend.uses_system_mixer() {
+                        "Active; unverified"
+                    } else {
+                        "Not in this path"
                     }
                 )))
                 .child(value(format!(
@@ -216,7 +235,7 @@ impl Render for ListeningDevice {
     }
 }
 
-fn rate_choice(
+pub(super) fn rate_choice(
     id: &str,
     label: String,
     rate: SampleRatePolicy,
@@ -233,7 +252,7 @@ fn rate_choice(
         .on_change(move |_, _, _| queue.select_output(next.clone()))
 }
 
-fn heading(text: &'static str) -> impl IntoElement {
+pub(super) fn heading(text: &'static str) -> impl IntoElement {
     div()
         .id(text)
         .role(Role::Heading)
@@ -243,7 +262,7 @@ fn heading(text: &'static str) -> impl IntoElement {
         .font_semibold()
         .child(text)
 }
-fn value(text: impl Into<String>) -> impl IntoElement {
+pub(super) fn value(text: impl Into<String>) -> impl IntoElement {
     let text = text.into();
     div()
         .id(gpui_kit::SharedString::from(text.clone()))
@@ -252,9 +271,10 @@ fn value(text: impl Into<String>) -> impl IntoElement {
         .text_sm()
         .child(text)
 }
-fn warning(text: String, cx: &App) -> impl IntoElement {
+pub(super) fn warning(id: &'static str, text: String, cx: &App) -> impl IntoElement {
     div()
-        .id(gpui_kit::SharedString::from(text.clone()))
+        .id(id)
+        .test_support()
         .role(Role::Alert)
         .aria_label(text.clone())
         .text_color(cx.theme().warning)
@@ -268,7 +288,7 @@ fn backend_label(backend: OutputBackend) -> &'static str {
         _ => "Unavailable",
     }
 }
-fn sample_label(sample: OutputSampleFormat) -> String {
+pub(super) fn sample_label(sample: OutputSampleFormat) -> String {
     match sample {
         OutputSampleFormat::Float { bits } => format!("float{bits}"),
         OutputSampleFormat::Int {

@@ -135,7 +135,8 @@ impl Player {
                     }
                 }
                 EngineEvent::Position(position) => self.position = Some(position),
-                EngineEvent::Underruns { .. }
+                EngineEvent::AsioCapabilities { .. }
+                | EngineEvent::Underruns { .. }
                 | EngineEvent::OutputLost { .. }
                 | EngineEvent::EntryBoundary { .. }
                 | EngineEvent::Synchronized { .. } => {}

@@ -248,7 +248,9 @@ impl Harness {
             }
             EngineEvent::Position(position) => self.position = Some(position),
             EngineEvent::OutputLost { device } => self.lost.push(device),
-            EngineEvent::Underruns { .. } | EngineEvent::Synchronized { .. } => {}
+            EngineEvent::AsioCapabilities { .. }
+            | EngineEvent::Underruns { .. }
+            | EngineEvent::Synchronized { .. } => {}
             EngineEvent::EntryBoundary {
                 generation,
                 from,

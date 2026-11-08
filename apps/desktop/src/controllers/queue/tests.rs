@@ -724,6 +724,7 @@ fn output_changes_pause_and_persist_the_selection_without_losing_queue_position(
             stable_id: "selected-headphones".into(),
         }),
         rate: SampleRatePolicy::Fixed(SampleRate::new(96_000).unwrap()),
+        asio: Default::default(),
     };
     service.select_output(selection.clone());
     let paused = wait(&service, |state| {

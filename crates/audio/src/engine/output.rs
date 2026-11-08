@@ -7,6 +7,17 @@ use super::render::StreamRenderer;
 
 /// Opens device streams. A backend such as WASAPI Shared implements it.
 pub trait Output: Send + 'static {
+    fn asio_capabilities(
+        &mut self,
+        _selection: &OutputSelection,
+    ) -> Result<parabolica_domain::output::AsioCapabilities, OutputError> {
+        Err(OutputError::BackendUnavailable)
+    }
+
+    fn driver_panel(&mut self, _selection: &OutputSelection) -> Result<(), OutputError> {
+        Err(OutputError::BackendUnavailable)
+    }
+
     /// Open a stream on the backend's device and negotiate its format without starting it.
     fn open(&mut self) -> Result<Box<dyn OutputStream>, OutputError>;
 
@@ -24,6 +35,10 @@ pub trait OutputStream: Send {
     /// The format and buffer the backend actually opened.
     fn negotiated(&self) -> &NegotiatedOutput;
 
+    fn asio_capabilities(&self) -> Option<parabolica_domain::output::AsioCapabilities> {
+        None
+    }
+
     /// Start calling `renderer` from the backend's real-time thread.
     fn start(&mut self, renderer: StreamRenderer) -> Result<(), OutputError>;
 
@@ -39,10 +54,12 @@ pub enum OutputError {
     DeviceLost,
     #[error("the requested output format is not supported: {0}")]
     UnsupportedFormat(String),
-    #[error("the selected endpoint is busy; close its other player or choose WASAPI Shared")]
+    #[error("the selected output is busy; close other audio apps and retry")]
     Busy,
     #[error("the selected output backend is not available in this build")]
     BackendUnavailable,
+    #[error("the ASIO driver requested reconfiguration ({0}); retry the selected driver")]
+    DriverReset(String),
     #[error("the audio device stopped responding")]
     Stalled,
     #[error("audio output failed: {0}")]

@@ -45,6 +45,7 @@ pub struct OutputSelection {
     /// None resolves the Windows default once. Subsequent opens retain that endpoint.
     pub device: Option<OutputDeviceId>,
     pub rate: SampleRatePolicy,
+    pub asio: AsioSelection,
 }
 
 impl Default for OutputSelection {
@@ -53,6 +54,7 @@ impl Default for OutputSelection {
             backend: OutputBackend::WasapiShared,
             device: None,
             rate: SampleRatePolicy::FollowSource,
+            asio: AsioSelection::default(),
         }
     }
 }
@@ -63,6 +65,14 @@ impl OutputSelection {
         source: &crate::format::SourceFormat,
         output: &NegotiatedOutput,
     ) -> bool {
+        if self.backend == OutputBackend::Asio {
+            let rate = match self.rate {
+                SampleRatePolicy::FollowSource => source.rate,
+                SampleRatePolicy::Fixed(rate) => rate,
+            };
+            return rate != output.format.rate
+                || source.channels.get() > output.format.channels.get();
+        }
         if self.backend != OutputBackend::WasapiExclusive {
             return false;
         }
@@ -103,6 +113,76 @@ pub struct AudioEndpoint {
     /// Exact stereo formats accepted by IsFormatSupported in Exclusive mode.
     pub exclusive_formats: Vec<OutputFormat>,
     pub capability_error: Option<String>,
+}
+
+/// ASIO channel indices are zero-based and belong to the selected driver only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsioSelection {
+    pub channels: Vec<u16>,
+    /// None uses the driver's current preferred size on every open.
+    pub buffer_frames: Option<u32>,
+}
+
+impl Default for AsioSelection {
+    fn default() -> Self {
+        Self {
+            channels: vec![0, 1],
+            buffer_frames: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsioDriver {
+    pub stable_id: String,
+    pub name: String,
+    pub architecture: String,
+    pub compatible: bool,
+    pub library_path: String,
+    pub unavailable_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsioChannel {
+    pub index: u16,
+    pub name: String,
+    pub sample_type: i32,
+    pub sample: Option<crate::format::OutputSampleFormat>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsioCapabilities {
+    pub device: OutputDeviceId,
+    pub driver_name: String,
+    pub driver_version: i32,
+    pub outputs: Vec<AsioChannel>,
+    /// Individually queried rates, not an exhaustive range or a promise of open success.
+    pub rates: Vec<crate::format::SampleRate>,
+    pub current_rate: Option<crate::format::SampleRate>,
+    pub buffer: AsioBufferSizes,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AsioBufferSizes {
+    pub min: u32,
+    pub max: u32,
+    pub preferred: u32,
+    /// -1 means powers of two; 0 means a fixed size; positive values are frame increments.
+    pub granularity: i32,
+}
+
+impl AsioBufferSizes {
+    pub fn supports(self, frames: u32) -> bool {
+        if frames < self.min || frames > self.max {
+            return false;
+        }
+        match self.granularity {
+            -1 => frames.is_power_of_two(),
+            0 => frames == self.preferred,
+            step if step > 0 => (frames - self.min).is_multiple_of(step as u32),
+            _ => false,
+        }
+    }
 }
 
 /// Who controls the buffer size. ASIO drivers often own it; the app must then report it rather

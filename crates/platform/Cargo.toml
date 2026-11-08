@@ -12,6 +12,7 @@ parabolica-provider-contracts.workspace = true
 url = "=2.5.8"
 
 [target.'cfg(windows)'.dependencies]
+winreg = "=0.56.0"
 windows = { version = "=0.62.2", features = [
     "Win32_Graphics_Gdi",
     "Win32_Devices_FunctionDiscovery",
@@ -31,3 +32,10 @@ windows = { version = "=0.62.2", features = [
 
 [lints]
 workspace = true
+
+[features]
+asio = []
+
+[target.'cfg(windows)'.build-dependencies]
+cc = "=1.11.0"
+sha2 = "=0.10.9"

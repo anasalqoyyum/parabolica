@@ -69,6 +69,10 @@ pub struct QueueSnapshot {
     pub revision: u64,
     pub output_selection: OutputSelection,
     pub endpoints: Vec<AudioEndpoint>,
+    pub asio_drivers: Vec<parabolica_domain::output::AsioDriver>,
+    pub asio_capabilities: Option<parabolica_domain::output::AsioCapabilities>,
+    pub asio_error: Option<String>,
+    pub asio_refresh_error: Option<String>,
     pub output_settings_error: Option<String>,
     pub output_refresh_error: Option<String>,
     /// Entries in effective playback order, so move indices match the displayed rows.
@@ -95,6 +99,10 @@ impl Default for QueueSnapshot {
             revision: 0,
             output_selection: OutputSelection::default(),
             endpoints: Vec::new(),
+            asio_drivers: Vec::new(),
+            asio_capabilities: None,
+            asio_error: None,
+            asio_refresh_error: None,
             output_settings_error: None,
             output_refresh_error: None,
             entries: Vec::new(),
@@ -151,6 +159,7 @@ enum Command {
     Volume(Volume),
     SelectOutput(OutputSelection),
     RefreshOutputs,
+    DriverPanel,
     CreatePlaylist(String),
     RenamePlaylist(PlaylistId, String),
     DeletePlaylist(PlaylistId),
@@ -200,6 +209,10 @@ impl QueueService {
 
     pub fn select_output(&self, selection: OutputSelection) {
         self.send(Command::SelectOutput(selection));
+    }
+
+    pub fn driver_panel(&self) {
+        self.send(Command::DriverPanel);
     }
 
     pub fn refresh_outputs(&self) {
