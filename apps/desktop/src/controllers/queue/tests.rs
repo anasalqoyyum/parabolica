@@ -464,7 +464,7 @@ fn forced_termination_restores_the_last_committed_session_paused() {
     let frame = parabolica_audio::decode::duration_to_frames(saved.queue.position, rate);
     assert_eq!(
         state.position,
-        parabolica_audio::decode::frames_to_duration(frame, rate)
+        Duration::from_secs_f64(frame as f64 / f64::from(rate.hz()))
     );
     assert!(state.position.abs_diff(saved.queue.position) < Duration::from_secs_f64(1. / 48_000.));
     assert_eq!(
