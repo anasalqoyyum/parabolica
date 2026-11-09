@@ -16,6 +16,7 @@ pub mod playlists;
 pub mod preferences;
 pub mod queue;
 pub mod recovery;
+pub mod replaygain;
 pub mod session;
 pub mod sources;
 

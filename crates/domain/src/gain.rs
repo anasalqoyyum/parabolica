@@ -1,5 +1,7 @@
 //! ReplayGain values, modes and app volume.
 
+pub mod analysis;
+
 /// A finite gain in decibels.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Decibels(f32);

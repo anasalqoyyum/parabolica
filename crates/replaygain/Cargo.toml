@@ -8,6 +8,9 @@ publish.workspace = true
 
 [dependencies]
 parabolica-domain.workspace = true
+ebur128 = "=0.1.10"
+sha2 = "=0.10.9"
+thiserror.workspace = true
 
 [lints]
 workspace = true
