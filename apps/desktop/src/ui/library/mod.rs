@@ -48,6 +48,18 @@ pub(crate) fn storage(cx: &App) -> Option<Storage> {
         .and_then(|library| library.storage.clone())
 }
 
+pub(crate) enum ScanRequested {
+    Files(Vec<MediaFileId>),
+    Album(ReleaseId),
+}
+impl gpui_kit::EventEmitter<ScanRequested> for LibraryView {}
+
+pub(crate) fn revision(cx: &App) -> u64 {
+    cx.try_global::<Library>()
+        .and_then(|l| l.service.as_ref())
+        .map_or(0, |s| s.status().revision)
+}
+
 pub struct LibraryView {
     pub(crate) storage: Option<Storage>,
     pub(crate) service: Option<Arc<LibraryService>>,
@@ -557,6 +569,14 @@ impl LibraryView {
                 cx,
             ))
             .child(
+                Button::new("selection-scan")
+                    .label("Scan ReplayGain")
+                    .disabled(self.checked.is_empty())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        cx.emit(ScanRequested::Files(this.checked.iter().copied().collect()))
+                    })),
+            )
+            .child(
                 Button::new("selection-next")
                     .label("Play next")
                     .disabled(self.checked.is_empty())
@@ -850,6 +870,19 @@ impl Render for LibraryView {
                                 )
                                 .when(album, |column| {
                                     column
+                                        .child(
+                                            Button::new("album-scan")
+                                                .label("Scan ReplayGain")
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    if let Some(CollectionItem {
+                                                        id: ItemId::Album(album),
+                                                        ..
+                                                    }) = &this.selection
+                                                    {
+                                                        cx.emit(ScanRequested::Album(*album));
+                                                    }
+                                                })),
+                                        )
                                         .child(
                                             Button::new("play-album")
                                                 .primary()

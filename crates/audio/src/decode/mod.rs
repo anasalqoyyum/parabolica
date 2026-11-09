@@ -95,6 +95,13 @@ pub struct SourceInfo {
 }
 
 impl SourceInfo {
+    pub fn positioned_channel_mask(&self) -> Option<u64> {
+        match &self.channel_layout {
+            Channels::Positioned(positions) => Some(positions.bits()),
+            _ => None,
+        }
+    }
+
     pub fn continuous_with(&self, next: &Self) -> bool {
         self.format.rate == next.format.rate && self.channel_layout == next.channel_layout
     }
@@ -292,6 +299,10 @@ impl Decoder {
     /// Frame index of the next frame `next_block` returns.
     pub fn position(&self) -> u64 {
         self.position
+    }
+
+    pub fn skipped_packet_count(&self) -> u64 {
+        self.skipped_packets
     }
 
     /// Append the next decoded frames to `out` as interleaved PCM and return how many frames

@@ -62,9 +62,10 @@ pub struct Shell {
     player: Entity<Player>,
     listening_device: Entity<crate::ui::listening_device::ListeningDevice>,
     library: Entity<LibraryView>,
+    scanner: Entity<crate::ui::replaygain::scanner::Scanner>,
     queue: Entity<crate::ui::queue::QueueView>,
     playlists: Entity<crate::ui::playlists::PlaylistsView>,
-    _subscriptions: [Subscription; 4],
+    _subscriptions: [Subscription; 5],
 }
 
 impl Shell {
@@ -82,8 +83,23 @@ impl Shell {
         let queue = cx.new(|cx| crate::ui::queue::QueueView::new(commands.clone(), cx));
         let playlists = cx.new(|cx| crate::ui::playlists::PlaylistsView::new(commands, window, cx));
         let library = cx.new(|cx| LibraryView::new(player.clone(), cx));
+        let scanner = cx.new(|cx| crate::ui::replaygain::scanner::Scanner::new(player.clone(), cx));
         let search_library = library.clone();
         let subscriptions = [
+            cx.subscribe(
+                &library,
+                |this, _, event: &crate::ui::library::ScanRequested, cx| {
+                    this.scanner.update(cx, |scanner, cx| match event {
+                        crate::ui::library::ScanRequested::Files(files) => {
+                            scanner.select_files(files.clone(), cx)
+                        }
+                        crate::ui::library::ScanRequested::Album(album) => {
+                            scanner.select_album(*album, cx)
+                        }
+                    });
+                    this.navigate(Page::ReplayGain, cx);
+                },
+            ),
             cx.subscribe(
                 &search,
                 move |_, input, _: &gpui_kit::component::input::InputEvent, cx| {
@@ -116,6 +132,7 @@ impl Shell {
             player,
             listening_device,
             library,
+            scanner,
             queue,
             playlists,
             _subscriptions: subscriptions,
@@ -358,7 +375,7 @@ impl Shell {
                 }
                 Page::Queue => self.queue.clone().into_any_element(),
                 Page::Playlists => self.playlists.clone().into_any_element(),
-                Page::ReplayGain => not_available(cx),
+                Page::ReplayGain => self.scanner.clone().into_any_element(),
             })
     }
 
