@@ -393,7 +393,9 @@ impl Storage {
     pub fn publish_scan(&self, scan: JobId) -> Result<(), StorageError> {
         self.write(move |tx| {
             let changed=tx.execute("UPDATE rg_scans SET saved=1 WHERE id=?1 AND state='ready' AND NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND stale=1) AND NOT EXISTS(SELECT 1 FROM rg_members WHERE scan_id=?1 AND state<>'done') AND (mode='tracks' OR NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND peak IS NULL))",[scan.to_bytes()])?;
-            if changed!=1 { return Err(StorageError::Conflict("Rescan incomplete or stale results before saving".into())); } Ok(())
+            if changed!=1 { return Err(StorageError::Conflict("Rescan incomplete or stale results before saving".into())); }
+            tx.execute("INSERT INTO rg_publications(file_id,scan_id) SELECT file_id,scan_id FROM rg_members WHERE scan_id=?1 ON CONFLICT(file_id) DO UPDATE SET scan_id=excluded.scan_id", [scan.to_bytes()])?;
+            Ok(())
         })
     }
     /// Latest explicitly saved app result, including invalidation. A consumer must never treat
@@ -406,10 +408,10 @@ impl Storage {
             let selected = tx
                 .query_row(
                     "SELECT s.id,s.analyzer,s.target_lufs,m.measurement_id,g.gain_db,g.peak,g.stale
-                 FROM rg_scans s JOIN rg_members m ON m.scan_id=s.id
+                 FROM rg_publications p JOIN rg_scans s ON s.id=p.scan_id
+                 JOIN rg_members m ON m.scan_id=p.scan_id AND m.file_id=p.file_id
                  JOIN rg_groups g ON g.scan_id=m.scan_id AND g.ordinal=m.group_ordinal
-                 WHERE s.saved=1 AND m.file_id=?1
-                 ORDER BY s.created_at_ms DESC,s.id DESC LIMIT 1",
+                 WHERE p.file_id=?1",
                     [file.to_bytes()],
                     |r| {
                         Ok((
@@ -597,5 +599,160 @@ mod tests {
                 .cached_scan_measurement(file, signature, PeakMethod::Sample)
                 .is_err()
         );
+    }
+    fn ready_track_scan(storage: &Storage, files: &[MediaFileId]) -> JobId {
+        let signature = FileSignature {
+            size_bytes: 100,
+            modified_unix_nanos: 1_700_000_000_000_000_000,
+            content_digest: Some(ContentDigest([7; 32])),
+        };
+        let scan = storage
+            .create_scan(
+                files
+                    .iter()
+                    .map(|file| ReviewedGroup {
+                        name: "Track".into(),
+                        warning: String::new(),
+                        members: vec![ScanMember {
+                            file: *file,
+                            title: "Track".into(),
+                        }],
+                        albums: Vec::new(),
+                    })
+                    .collect(),
+                ScanMode::Tracks,
+                PeakMethod::Sample,
+            )
+            .unwrap();
+        storage
+            .set_scan_state(scan, ScanState::Scanning, None)
+            .unwrap();
+        for file in files {
+            let cached = storage
+                .cache_scan_measurement(
+                    *file,
+                    signature.clone(),
+                    TrackAnalysis {
+                        sample_rate: 48000,
+                        channel_mask: 3,
+                        frames: 19200,
+                        peak_method: PeakMethod::Sample,
+                        sample_peak: 0.4,
+                        peak: 0.4,
+                        loudness_lufs: Some(-20.0),
+                        energies: vec![10.0_f64.powf((-20.0 + 0.691) / 10.0)],
+                    },
+                )
+                .unwrap();
+            storage
+                .record_scan_member(scan, *file, Some(cached.id), None, false)
+                .unwrap();
+        }
+        storage.finish_scan(scan).unwrap();
+        scan
+    }
+
+    #[test]
+    fn latest_save_selects_each_file_and_survives_restart_without_stale_fallback() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("app.db");
+        let storage = Storage::open(&path).unwrap();
+        let first = MediaFileId::generate();
+        let second = MediaFileId::generate();
+        let older = ready_track_scan(&storage, &[first, second]);
+        let newer = ready_track_scan(&storage, &[first]);
+        storage
+            .write(move |tx| {
+                tx.execute(
+                    "UPDATE rg_scans SET created_at_ms=100 WHERE id=?1",
+                    [older.to_bytes()],
+                )?;
+                tx.execute(
+                    "UPDATE rg_scans SET created_at_ms=200 WHERE id=?1",
+                    [newer.to_bytes()],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        storage.publish_scan(newer).unwrap();
+        assert_eq!(
+            storage.published_analysis(first).unwrap().unwrap().scan,
+            newer
+        );
+        assert!(storage.published_analysis(second).unwrap().is_none());
+        storage.publish_scan(older).unwrap();
+        assert_eq!(
+            storage.published_analysis(first).unwrap().unwrap().scan,
+            older
+        );
+        assert_eq!(
+            storage.published_analysis(second).unwrap().unwrap().scan,
+            older
+        );
+        storage.publish_scan(newer).unwrap();
+        assert_eq!(
+            storage.published_analysis(first).unwrap().unwrap().scan,
+            newer
+        );
+        assert_eq!(
+            storage.published_analysis(second).unwrap().unwrap().scan,
+            older
+        );
+        storage.mark_scan_stale(newer).unwrap();
+        assert!(storage.publish_scan(newer).is_err());
+        drop(storage);
+        let reopened = Storage::open(&path).unwrap();
+        let selected = reopened.published_analysis(first).unwrap().unwrap();
+        assert_eq!(selected.scan, newer);
+        assert!(selected.stale);
+        assert_eq!(
+            reopened.published_analysis(second).unwrap().unwrap().scan,
+            older
+        );
+    }
+    #[test]
+    fn publication_migration_preserves_the_legacy_per_file_selection() {
+        let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+        let legacy = crate::migrate::MIGRATIONS
+            .iter()
+            .filter(|migration| migration.name != "0010_02_publication_selection.sql")
+            .collect::<Vec<_>>();
+        crate::migrate::apply(&mut connection, &legacy).unwrap();
+        let first = MediaFileId::generate();
+        let second = MediaFileId::generate();
+        let older = JobId::generate();
+        let newer = JobId::generate();
+        let preview = JobId::generate();
+        for (id, files, saved, created) in [
+            (older, vec![first, second], true, 100),
+            (newer, vec![first], true, 200),
+            (preview, vec![first], false, 300),
+        ] {
+            connection.execute("INSERT INTO rg_scans(id,created_at_ms,analyzer,target_lufs,peak_method,mode,state,saved) VALUES(?1,?2,?3,-18,'sample','tracks','ready',?4)", params![id.to_bytes(), created, ANALYZER, saved]).unwrap();
+            for (ordinal, file) in files.iter().enumerate() {
+                connection.execute("INSERT INTO rg_groups(scan_id,ordinal,name,warning) VALUES(?1,?2,'Track','')", params![id.to_bytes(), ordinal as i64]).unwrap();
+                connection.execute("INSERT OR IGNORE INTO rg_measurements(id,file_id,digest,analyzer,peak_method,size_bytes,modified_unix_nanos,measured_at_ms,sample_rate,channel_mask,frames,sample_peak,peak,loudness_lufs,energies) VALUES(?1,?2,zeroblob(32),?3,'sample',100,0,0,48000,3,19200,0,0,NULL,zeroblob(8))",params![if *file == first {1} else {2}, file.to_bytes(), ANALYZER]).unwrap();
+                connection.execute("INSERT INTO rg_members(scan_id,group_ordinal,ordinal,file_id,title,state,measurement_id) VALUES(?1,?2,0,?3,'Track','done',?4)", params![id.to_bytes(), ordinal as i64, file.to_bytes(), if *file == first {1} else {2}]).unwrap();
+            }
+        }
+        let migration = crate::migrate::MIGRATIONS
+            .iter()
+            .find(|migration| migration.name == "0010_02_publication_selection.sql")
+            .unwrap();
+        crate::migrate::apply(&mut connection, &[migration]).unwrap();
+        for (file, expected) in [(first, newer), (second, older)] {
+            let scan: Vec<u8> = connection
+                .query_row(
+                    "SELECT scan_id FROM rg_publications WHERE file_id=?1",
+                    [file.to_bytes()],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(scan, expected.to_bytes());
+        }
+        let count: i64 = connection
+            .query_row("SELECT count(*) FROM rg_publications", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
     }
 }

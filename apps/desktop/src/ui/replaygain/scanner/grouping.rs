@@ -60,7 +60,7 @@ pub fn review(
         }
         if mode != ScanMode::Tracks {
             let mut discs = BTreeMap::<(ReleaseId, u32), Vec<&ScanCandidate>>::new();
-            let mut disc_total = 0;
+            let mut disc_totals = BTreeMap::<ReleaseId, u32>::new();
             for member in members {
                 discs
                     .entry((member.album, member.disc))
@@ -73,7 +73,16 @@ pub fn review(
                         .and_then(|t| t.value.parse::<u32>().ok())
                         .unwrap_or(0)
                 };
-                disc_total = disc_total.max(number(&["DISCTOTAL", "TOTALDISCS"]));
+                let slash_total = tags
+                    .iter()
+                    .filter(|tag| tag.field == "DISCNUMBER")
+                    .filter_map(|tag| tag.value.split('/').nth(1)?.trim().parse::<u32>().ok())
+                    .max()
+                    .unwrap_or(0);
+                let total = disc_totals.entry(member.album).or_default();
+                *total = (*total)
+                    .max(number(&["DISCTOTAL", "TOTALDISCS"]))
+                    .max(slash_total);
             }
             for ((album, disc), tracks) in &discs {
                 if mode == ScanMode::Disc {
@@ -116,11 +125,20 @@ pub fn review(
                     warnings.push(format!("Disc {disc}: missing or duplicate track numbers"));
                 }
             }
-            if mode != ScanMode::Disc && disc_total > 0 && discs.len() < disc_total as usize {
-                warnings.push(format!(
-                    "Suspected missing discs: {} of {disc_total} selected",
-                    discs.len()
-                ));
+            if mode != ScanMode::Disc {
+                let mut selected_discs = BTreeMap::<ReleaseId, usize>::new();
+                for (album, _) in discs.keys() {
+                    *selected_discs.entry(*album).or_default() += 1;
+                }
+                for (album, total) in disc_totals {
+                    let count = selected_discs[&album];
+                    if count < total as usize {
+                        warnings.push(format!(
+                            "Suspected missing discs: {count} of {total} selected in {}",
+                            by_album[&album][0].album_title
+                        ));
+                    }
+                }
             }
         }
         warnings.sort();

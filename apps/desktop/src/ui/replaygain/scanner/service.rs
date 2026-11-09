@@ -148,6 +148,9 @@ impl ScannerService {
         if matches!(&command, Command::Refresh | Command::Review(..)) {
             status.completed_scan = None;
         }
+        if matches!(&command, Command::Review(..)) {
+            status.preview = Arc::default();
+        }
         status.operation = match &command {
             Command::Refresh => "Refreshing library",
             Command::Review(..) => "Reviewing groups",
@@ -899,6 +902,95 @@ mod tests {
                 .unwrap()
                 .state,
             ScanState::Stale
+        );
+    }
+    #[test]
+    fn failed_review_discards_the_previous_actionable_preview() {
+        let (_dir, storage) = collection();
+        let service = ScannerService::start(storage.clone());
+        wait(&service, |s| !s.busy);
+        let selected = storage
+            .scan_candidates()
+            .unwrap()
+            .iter()
+            .map(|c| c.file)
+            .collect();
+        service
+            .send(Command::Review(selected, ScanMode::Tags))
+            .unwrap();
+        assert!(!wait(&service, |s| !s.busy).preview.is_empty());
+        service
+            .send(Command::Review(
+                HashSet::from([MediaFileId::generate()]),
+                ScanMode::Tracks,
+            ))
+            .unwrap();
+        assert!(service.status().preview.is_empty());
+        let failed = wait(&service, |s| !s.busy);
+        assert!(
+            failed
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("removed from the library")
+        );
+        assert!(failed.preview.is_empty());
+    }
+
+    #[test]
+    fn slash_form_disc_total_warns_when_an_unindexed_disc_is_declared() {
+        use parabolica_storage::library::{DisplayTag, MediaFileRecord};
+        let (_dir, storage) = collection();
+        let all = storage
+            .scan_candidates()
+            .unwrap()
+            .into_iter()
+            .filter(|c| c.disc == 1)
+            .collect::<Vec<_>>();
+        let first = &all[0];
+        let file = storage.media_file(first.file).unwrap().unwrap();
+        let mut tags = storage.media_file_tags(first.file).unwrap();
+        tags.retain(|tag| !["DISCNUMBER", "DISCTOTAL", "TOTALDISCS"].contains(&tag.field.as_str()));
+        tags.push(DisplayTag::new("DISCNUMBER", "1/2"));
+        storage
+            .record_media_file(MediaFileRecord {
+                location: file.location,
+                os_file_id: file.os_file_id,
+                signature: file.signature,
+                tags,
+            })
+            .unwrap();
+        let selected = HashSet::from([first.file]);
+        for mode in [ScanMode::Tags, ScanMode::Album] {
+            let groups = super::super::grouping::review(&storage, &all, &selected, mode).unwrap();
+            assert!(
+                groups[0]
+                    .warning
+                    .contains("Suspected missing discs: 1 of 2 selected")
+            );
+        }
+        let discs =
+            super::super::grouping::review(&storage, &all, &selected, ScanMode::Disc).unwrap();
+        assert!(!discs[0].warning.contains("missing discs"));
+        let other = storage
+            .scan_candidates()
+            .unwrap()
+            .into_iter()
+            .find(|c| c.disc == 2)
+            .unwrap();
+        storage.split_local_group(vec![other.file]).unwrap();
+        let mixed = storage.scan_candidates().unwrap();
+        let combined = super::super::grouping::review(
+            &storage,
+            &mixed,
+            &HashSet::from([first.file, other.file]),
+            ScanMode::Album,
+        )
+        .unwrap();
+        assert!(
+            combined[0]
+                .warning
+                .contains("Suspected missing discs: 1 of 2 selected")
         );
     }
 }

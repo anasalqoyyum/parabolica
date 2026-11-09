@@ -114,3 +114,87 @@ fn cancellation_is_only_offered_for_operations_that_observe_it(cx: &mut gpui_kit
         .unwrap();
     }
 }
+
+#[gpui_kit::test]
+fn historical_resume_clears_unrelated_groups_before_starting_review(
+    cx: &mut gpui_kit::TestAppContext,
+) {
+    use crate::commands::playback::PlaybackCommands;
+    use gpui_kit::test::TestWindowExt as _;
+    use parabolica_audio::engine::NoOutput;
+    use parabolica_storage::replaygain::{
+        GroupResult, MemberResult, ReviewedGroup, ScanMember, ScanRecord,
+    };
+
+    let previous = MediaFileId::generate();
+    let missing = MediaFileId::generate();
+    let history_id = JobId::generate();
+    let group = |file| ReviewedGroup {
+        name: "Reviewed selection".into(),
+        warning: String::new(),
+        members: vec![ScanMember {
+            file,
+            title: "Track".into(),
+        }],
+        albums: Vec::new(),
+    };
+    let (window, scanner) = cx.update(|cx| {
+        gpui_kit::init(cx);
+        gpui_kit::open_window(gpui_kit::WindowOptions::default(), cx, |_, cx| {
+            let player = cx.new(|cx| {
+                let (commands, events) = PlaybackCommands::with_output(Box::new(NoOutput));
+                Player::with_commands(commands, events, cx)
+            });
+            cx.new(|cx| Scanner::new(player, cx))
+        })
+        .unwrap()
+    });
+    cx.update_window(window, |_, window, cx| {
+        scanner.update(cx, |scanner, cx| {
+            scanner.status.preview = Arc::new(vec![group(previous)]);
+            scanner.accepted = true;
+            scanner.selected = HashSet::from([previous]);
+            scanner.showing = Some(history_id);
+            scanner.status.history = Arc::new(vec![ScanRecord {
+                id: history_id,
+                created_at_ms: 0,
+                analyzer: "test".into(),
+                target_lufs: -18.0,
+                method: PeakMethod::TruePeak,
+                mode: ScanMode::Tracks,
+                state: ScanState::Cancelled,
+                saved: false,
+                error: None,
+                groups: vec![GroupResult {
+                    reviewed: group(missing),
+                    stale: false,
+                    gain_db: None,
+                    peak: None,
+                    members: vec![MemberResult {
+                        file: missing,
+                        title: "Missing historical track".into(),
+                        done: false,
+                        detail: None,
+                        measurement: None,
+                        reused: false,
+                    }],
+                }],
+            }]);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("scanner-resume", cx);
+        scanner.update(cx, |scanner, _| {
+            assert_eq!(scanner.selected, HashSet::from([missing]));
+            assert_eq!(scanner.mode, ScanMode::Tracks);
+            assert_eq!(scanner.method, PeakMethod::TruePeak);
+            assert!(scanner.status.preview.is_empty());
+            assert!(!scanner.accepted);
+            assert!(scanner.showing.is_none());
+        });
+        window.render_frame(cx);
+        assert!(window.try_find("scanner-accept").is_none());
+        assert!(window.try_find("scanner-start").is_none());
+    })
+    .unwrap();
+}

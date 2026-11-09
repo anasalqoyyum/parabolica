@@ -214,8 +214,7 @@ impl Scanner {
                     .label("Review groups")
                     .disabled(busy || self.selected.is_empty())
                     .on_click(cx.listener(|this, _, _, cx| {
-                        this.showing = None;
-                        this.accepted = false;
+                        this.changed(cx);
                         this.send(Command::Review(this.selected.clone(), this.mode), cx);
                     })),
             )
@@ -503,8 +502,7 @@ impl Scanner {
                                     this.mode = record.mode;
                                     this.method = record.method;
                                 }
-                                this.showing = None;
-                                this.accepted = false;
+                                this.changed(cx);
                                 this.send(Command::Review(this.selected.clone(), this.mode), cx);
                             })),
                     )
