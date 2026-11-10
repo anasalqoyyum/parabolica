@@ -510,8 +510,7 @@ fn sleep_pauses_and_saves_the_position_and_wake_does_not_resume() {
     std::thread::sleep(Duration::from_millis(300));
 
     pause_for_sleep(&queue, SLEEP_CHECKPOINT_WAIT);
-    let state = queue.snapshot();
-    assert_eq!(state.transport, TransportState::Paused);
+    assert_eq!(queue.snapshot().transport, TransportState::Paused);
     let saved = storage.load_session().unwrap().unwrap();
     assert_eq!(saved.queue.current, Some(ids[0]));
     assert!(
@@ -520,12 +519,14 @@ fn sleep_pauses_and_saves_the_position_and_wake_does_not_resume() {
         saved.queue.position
     );
 
-    queue.refresh_outputs();
+    // The reported position may settle once after the pause fade; then it must stay put.
     std::thread::sleep(Duration::from_millis(300));
+    let settled = queue.snapshot().position;
+    queue.refresh_outputs();
+    std::thread::sleep(Duration::from_millis(600));
     let woken = queue.snapshot();
     assert_eq!(woken.transport, TransportState::Paused);
-    // Only the pause fade may still advance the position.
-    assert!(woken.position < state.position + Duration::from_millis(100));
+    assert_eq!(woken.position, settled);
 }
 
 #[test]
