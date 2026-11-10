@@ -17,5 +17,6 @@ pub mod shell;
 pub mod signal_path;
 pub mod sleep_timer;
 pub mod sources;
+pub mod system_media;
 pub mod tags;
 pub mod theme;

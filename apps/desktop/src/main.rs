@@ -13,6 +13,10 @@ use parabolica_storage::Storage;
 use ui::shell::{AppAssets, Shell};
 
 fn main() {
+    let instance = match controllers::os_events::claim_instance() {
+        controllers::os_events::Launch::Primary(instance) => instance,
+        controllers::os_events::Launch::Forwarded => return,
+    };
     let storage = match database_path() {
         Some(path) => Storage::open(path).map_err(|error| error.to_string()),
         None => Err("no folder for app data was found".to_owned()),
@@ -27,12 +31,14 @@ fn main() {
         ),
     };
     let saved_appearance = ui::appearance::load_saved_mode(storage.as_ref());
+    let share_track_details = controllers::os_events::load_saved_sharing(storage.as_ref());
 
     application().with_assets(AppAssets).run(move |cx| {
         init(cx);
         ui::shell::init(cx);
         // Resolve the theme before the window exists, so the first frame is drawn in it.
         ui::library::init(storage.clone(), cx);
+        controllers::os_events::init(instance, share_track_details, storage.clone(), cx);
         ui::appearance::init(saved_appearance, storage, cx);
         ui::accounts::init(cx);
 
@@ -46,10 +52,11 @@ fn main() {
             app_id: Some("parabolica".into()),
             ..TitleBar::window_options()
         };
-        open_window(options, cx, |window, cx| {
+        let (window, shell) = open_window(options, cx, |window, cx| {
             cx.new(|cx| Shell::new(storage_error, window, cx))
         })
         .expect("failed to open the main window");
+        controllers::os_events::attach(window, &shell, cx);
     });
 }
 

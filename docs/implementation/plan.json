@@ -312,7 +312,8 @@
         "library",
         "queue",
         "youtube-access"
-      ]
+      ],
+      "implementation_evidence": "wasapi-and-listening-device.md"
     },
     {
       "key": "asio",
@@ -944,7 +945,8 @@
         "youtube-discovery",
         "discogs-adapter",
         "discogs-import"
-      ]
+      ],
+      "implementation_evidence": "windows-integration.md"
     },
     {
       "key": "recovery",
