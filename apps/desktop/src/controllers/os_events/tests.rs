@@ -183,8 +183,14 @@ fn command_line_files_resolve_against_the_working_directory() {
         absolute.clone().into_os_string(),
         OsString::from("line\nbreak.flac"),
     ];
+    // Not Unicode: a stray byte on Unix, an unpaired surrogate on Windows.
     #[cfg(unix)]
     args.push(std::os::unix::ffi::OsStringExt::from_vec(vec![0xff, b'x']));
+    #[cfg(windows)]
+    args.push(std::os::windows::ffi::OsStringExt::from_wide(&[
+        0xD800,
+        u16::from(b'x'),
+    ]));
     let request = OpenRequest::from_args(args.clone(), Some(&root()));
     assert_eq!(request.paths, vec![root().join("a.flac"), absolute.clone()]);
     assert_eq!(
