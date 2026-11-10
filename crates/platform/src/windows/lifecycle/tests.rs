@@ -71,6 +71,30 @@ fn a_rejected_request_reports_an_error_to_the_sender() {
 }
 
 #[test]
+fn a_stalled_client_does_not_block_stopping_the_server() {
+    let name = test_name("stalled");
+    let server = primary(&name).serve(|_| true);
+    // Connects and sends half of the length prefix, then waits.
+    let mut stalled = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(format!(r"\\.\pipe\{name}"))
+        .unwrap();
+    std::io::Write::write_all(&mut stalled, &[1, 0]).unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+
+    let started = std::time::Instant::now();
+    drop(server);
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
+    drop(stalled);
+    let _again = primary(&name);
+}
+
+#[test]
 fn stopping_the_server_releases_the_name() {
     let name = test_name("release");
     let server = primary(&name).serve(|_| true);

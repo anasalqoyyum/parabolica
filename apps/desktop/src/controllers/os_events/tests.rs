@@ -386,8 +386,20 @@ impl MediaSink for Recorder {
     }
 }
 
+fn wait_for(shown: &Shown, count: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while shown.lock().unwrap().len() < count {
+        assert!(
+            Instant::now() < deadline,
+            "shown: {:?}",
+            shown.lock().unwrap()
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
 #[test]
-fn late_artwork_for_a_replaced_entry_is_never_shown() {
+fn slow_artwork_never_delays_changes_or_shows_on_a_replaced_entry() {
     let queue = queue_with(
         vec![local_entry("Slow art"), local_entry("Next")],
         0,
@@ -402,9 +414,9 @@ fn late_artwork_for_a_replaced_entry_is_never_shown() {
         None,
         true,
     );
+    let hidden = present(&queue, None, false);
     let slow_path = root().join("Slow art.flac");
 
-    let (started, loading) = mpsc::channel();
     let (release, gate) = mpsc::channel::<()>();
     let shown = Shown::default();
     let presenter = Presenter::start(
@@ -414,33 +426,43 @@ fn late_artwork_for_a_replaced_entry_is_never_shown() {
                 return None;
             };
             if *path == slow_path {
-                started.send(()).unwrap();
                 gate.recv().unwrap();
             }
             Some(Arc::new(path.to_string_lossy().into_owned().into_bytes()))
         }),
     );
+    let (slow, next) = (queue.entries[0].entry.id, queue.entries[1].entry.id);
     presenter.present(first);
-    loading.recv_timeout(Duration::from_secs(5)).unwrap();
-    presenter.present(second);
+    wait_for(&shown, 1);
+    // The first entry's artwork read is now blocked; later changes still apply at once.
+    presenter.present(second.clone());
+    wait_for(&shown, 2);
+    presenter.present(hidden);
+    wait_for(&shown, 3);
     release.send(()).unwrap();
-    let next = queue.entries[1].entry.id;
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while shown.lock().unwrap().is_empty() {
-        assert!(Instant::now() < deadline, "nothing was shown");
-        std::thread::sleep(Duration::from_millis(5));
-    }
     drop(presenter);
-
-    let next_art = root()
-        .join("Next.flac")
-        .to_string_lossy()
-        .into_owned()
-        .into_bytes();
     assert_eq!(
         *shown.lock().unwrap(),
-        vec![(Some(next), Some(next_art)), (None, None)],
-        "only the newest entry is shown, then quitting clears the controls"
+        [
+            (Some(slow), None),
+            (Some(next), None),
+            (None, None),
+            (None, None)
+        ],
+        "late artwork never shows after the entry changed or details were hidden, \
+         and quitting clears the controls"
+    );
+
+    let shown = Shown::default();
+    let presenter = Presenter::start(
+        Recorder(shown.clone()),
+        Box::new(|_| Some(Arc::new(b"cover".to_vec()))),
+    );
+    presenter.present(second);
+    wait_for(&shown, 2);
+    assert_eq!(
+        shown.lock().unwrap()[..2],
+        [(Some(next), None), (Some(next), Some(b"cover".to_vec()))]
     );
 }
 

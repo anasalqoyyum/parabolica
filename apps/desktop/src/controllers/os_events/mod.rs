@@ -438,12 +438,13 @@ fn shutdown(cx: &mut App) {
         return;
     }
     let state = cx.global_mut::<OsEvents>();
+    if let Some(attached) = state.attached.take() {
+        attached.queue.shutdown();
+    }
+    // After the checkpoint, so a stalled second launch cannot delay it.
     #[cfg(windows)]
     {
         state.instance._server = None;
-    }
-    if let Some(attached) = state.attached.take() {
-        attached.queue.shutdown();
     }
 }
 

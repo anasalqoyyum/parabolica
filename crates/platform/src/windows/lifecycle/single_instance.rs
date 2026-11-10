@@ -8,9 +8,11 @@
 
 use std::fmt;
 use std::io;
+use std::os::windows::io::AsRawHandle as _;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use windows::Win32::Foundation::{
     CloseHandle, ERROR_ACCESS_DENIED, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GENERIC_READ,
@@ -28,6 +30,7 @@ use windows::Win32::Storage::FileSystem::{
     FlushFileBuffers, OPEN_EXISTING, PIPE_ACCESS_DUPLEX, ReadFile, SECURITY_IDENTIFICATION,
     SECURITY_SQOS_PRESENT, WriteFile,
 };
+use windows::Win32::System::IO::CancelSynchronousIo;
 use windows::Win32::System::Pipes::{
     ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, GetNamedPipeServerProcessId,
     PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_WAIT, WaitNamedPipeW,
@@ -43,6 +46,7 @@ pub const MAX_REQUEST_BYTES: usize = 1 << 20;
 const ACCEPTED: u8 = 1;
 const REJECTED: u8 = 0;
 const CONNECT_WAIT_MS: u32 = 2_000;
+const CANCEL_RETRY: Duration = Duration::from_millis(10);
 
 #[derive(Debug)]
 pub enum Claim {
@@ -120,13 +124,20 @@ impl fmt::Debug for ServerHandle {
 }
 
 impl Drop for ServerHandle {
+    /// Cancels whatever pipe call the server thread is blocked in, including a read from a client
+    /// that connected and then stalled, so dropping never waits on another process.
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        // Wake the blocking ConnectNamedPipe; the server sees the flag and exits.
-        let _ = open_client(&self.path);
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+        let Some(thread) = self.thread.take() else {
+            return;
+        };
+        // The thread may be between calls when a cancel arrives, so repeat until it exits.
+        while !thread.is_finished() {
+            // SAFETY: the join handle keeps the thread handle open until `join`.
+            let _ = unsafe { CancelSynchronousIo(HANDLE(thread.as_raw_handle())) };
+            std::thread::sleep(CANCEL_RETRY);
         }
+        let _ = thread.join();
     }
 }
 
@@ -176,7 +187,7 @@ impl RunningInstance {
 }
 
 fn serve(pipe: &Handle, stop: &AtomicBool, mut on_request: impl FnMut(Vec<u8>) -> bool) {
-    loop {
+    while !stop.load(Ordering::Acquire) {
         // SAFETY: `pipe` is the server instance this thread owns.
         let connected = unsafe { ConnectNamedPipe(pipe.0, None) };
         let connected = match connected {
