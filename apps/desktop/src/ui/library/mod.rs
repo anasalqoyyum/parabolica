@@ -54,6 +54,9 @@ pub(crate) enum ScanRequested {
 }
 impl gpui_kit::EventEmitter<ScanRequested> for LibraryView {}
 
+pub(crate) struct EditTagsRequested(pub ReleaseId);
+impl gpui_kit::EventEmitter<EditTagsRequested> for LibraryView {}
+
 pub(crate) fn revision(cx: &App) -> u64 {
     cx.try_global::<Library>()
         .and_then(|l| l.service.as_ref())
@@ -880,6 +883,19 @@ impl Render for LibraryView {
                                                     }) = &this.selection
                                                     {
                                                         cx.emit(ScanRequested::Album(*album));
+                                                    }
+                                                })),
+                                        )
+                                        .child(
+                                            Button::new("album-tags")
+                                                .label("Files & tags")
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    if let Some(CollectionItem {
+                                                        id: ItemId::Album(album),
+                                                        ..
+                                                    }) = &this.selection
+                                                    {
+                                                        cx.emit(EditTagsRequested(*album));
                                                     }
                                                 })),
                                         )

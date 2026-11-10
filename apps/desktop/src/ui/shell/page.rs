@@ -10,6 +10,7 @@ pub enum Page {
     Queue,
     Playlists,
     ReplayGain,
+    FilesAndTags,
     Settings(SettingsSection),
 }
 
@@ -34,6 +35,7 @@ impl Page {
             Self::Queue => "Queue",
             Self::Playlists => "Playlists",
             Self::ReplayGain => "ReplayGain",
+            Self::FilesAndTags => "Files & tags",
             Self::Settings(section) => section.title(),
         }
     }

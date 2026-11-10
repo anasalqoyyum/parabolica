@@ -5317,7 +5317,12 @@ dependencies = [
 name = "parabolica-tags"
 version = "0.1.0"
 dependencies = [
+ "image",
  "parabolica-domain",
+ "sha2 0.10.9",
+ "symphonia",
+ "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
