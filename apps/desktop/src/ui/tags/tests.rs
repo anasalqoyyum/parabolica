@@ -413,6 +413,14 @@ fn read_only_and_concurrently_edited_files_are_reported_per_file() {
     let status = send(&service, Command::Retry(record.id));
     assert_eq!(status.history[0].targets.len(), 1);
     assert_eq!(status.history[0].state, JobState::Completed);
+    // The first write's unfinished files now belong to the retry, so it can't be retried again.
+    let writes = status.history.len();
+    let status = send(&service, Command::Retry(record.id));
+    assert_eq!(
+        status.error.as_deref(),
+        Some("This write was already retried; retry the latest attempt")
+    );
+    assert_eq!(status.history.len(), writes);
 }
 
 #[test]
@@ -651,4 +659,20 @@ mod page {
             );
         }
     }
+}
+
+#[test]
+fn displayed_paths_drop_the_windows_verbatim_prefix() {
+    assert_eq!(
+        review::display_path(Path::new(r"\\?\C:\Music\Album\CD1")),
+        r"C:\Music\Album\CD1"
+    );
+    assert_eq!(
+        review::display_path(Path::new(r"\\?\UNC\server\share\Album")),
+        r"\\server\share\Album"
+    );
+    assert_eq!(
+        review::display_path(Path::new("/music/Album")),
+        "/music/Album"
+    );
 }

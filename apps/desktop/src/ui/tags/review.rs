@@ -339,7 +339,7 @@ pub fn plan(
     });
     for sidecar in &sidecars {
         lines.push(ReviewLine {
-            subject: sidecar.directory.display().to_string(),
+            subject: display_path(&sidecar.directory),
             change: if sidecar.replace.is_empty() {
                 format!("Save {}", sidecar.file_name)
             } else {
@@ -357,6 +357,18 @@ pub fn plan(
         sidecars,
         lines,
     })
+}
+
+/// A path as the user knows it: canonical Windows paths drop their `\\?\` prefix.
+pub(crate) fn display_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else if let Some(local) = text.strip_prefix(r"\\?\") {
+        local.to_owned()
+    } else {
+        text
+    }
 }
 
 fn describe_images(ids: &[ArtworkId], images: &HashMap<ArtworkId, StagedImage>) -> String {

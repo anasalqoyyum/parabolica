@@ -422,6 +422,13 @@ impl Worker {
             .tag_write(previous)
             .map_err(|e| e.to_string())?
             .ok_or("Write not found")?;
+        let history = self
+            .storage
+            .tag_writes(record.album)
+            .map_err(|e| e.to_string())?;
+        if history.iter().any(|r| r.retry_of == Some(previous)) {
+            return Err("This write was already retried; retry the latest attempt".into());
+        }
         let targets: Vec<TargetPlan> = record
             .targets
             .iter()

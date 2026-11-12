@@ -20,7 +20,7 @@ use gpui_kit::{
     AnyElement, App, Context, Entity, PathPromptOptions, Render, Role, SharedString, Subscription,
     Task, TestSupportExt as _, Window, div, px,
 };
-use parabolica_domain::ids::{MediaFileId, ReleaseId};
+use parabolica_domain::ids::{JobId, MediaFileId, ReleaseId};
 use parabolica_domain::jobs::JobState;
 use parabolica_domain::playback::TransportState;
 use parabolica_domain::tags::{ArtworkDestination, PictureType, TagField};
@@ -30,7 +30,8 @@ use crate::ui::library::LibraryView;
 use crate::ui::player::Player;
 use review::{
     ALBUM_FIELDS, AlbumReview, ArtChoice, Choices, FieldChoice, FileState, Mode, PICTURE_TYPES,
-    Plan, TRACK_FIELDS, TrackChoice, field_label, parse_values, picture_label, show_values,
+    Plan, TRACK_FIELDS, TrackChoice, display_path, field_label, parse_values, picture_label,
+    show_values,
 };
 use service::{Command, Status, TagService};
 
@@ -406,6 +407,10 @@ impl FilesAndTags {
                         .children(MODES.iter().map(|(mode, text)| {
                             Radio::new(SharedString::from(format!("tags-mode-{key}-{mode:?}")))
                                 .label(*text)
+                                .accessibility_label(format!(
+                                    "{text} {}",
+                                    field_label(field).to_lowercase()
+                                ))
                         }))
                         .on_change(cx.listener(
                             move |this, choice: &usize, _, cx| {
@@ -465,6 +470,7 @@ impl FilesAndTags {
                     let mut inputs = h_flex().gap_2().flex_wrap().child(
                         Checkbox::new(SharedString::from(format!("tags-include-{id}")))
                             .label("Include")
+                            .accessibility_label(format!("Include {name}"))
                             .checked(!self.excluded.contains(&id))
                             .disabled(self.status.busy)
                             .on_click(cx.listener(move |this, checked: &bool, _, cx| {
@@ -632,6 +638,7 @@ impl FilesAndTags {
                             .children(DESTINATIONS.iter().map(|(d, text)| {
                                 Radio::new(SharedString::from(format!("tags-art-{key}-{d:?}")))
                                     .label(*text)
+                                    .accessibility_label(destination_name(*d, kind))
                             }))
                             .on_change(cx.listener(
                                 move |this, choice: &usize, _, cx| {
@@ -747,38 +754,59 @@ impl FilesAndTags {
                 ))
                 .into_any_element();
         }
+        let retried: HashSet<JobId> = self
+            .status
+            .history
+            .iter()
+            .filter_map(|record| record.retry_of)
+            .collect();
         for record in self.status.history.iter() {
-            column = column.child(render_record(record, busy, cx));
+            let superseded = retried.contains(&record.id);
+            column = column.child(render_record(record, superseded, busy, cx));
         }
         column.into_any_element()
     }
 }
 
+/// The announced name of a destination choice, which names the picture it applies to.
+fn destination_name(destination: ArtworkDestination, kind: PictureType) -> String {
+    let picture = picture_label(kind).to_lowercase();
+    match destination {
+        ArtworkDestination::Embed => format!("Embed {picture} in files"),
+        ArtworkDestination::BesideFiles => format!("Save {picture} beside files"),
+        ArtworkDestination::Both => format!("Embed {picture} and save it beside files"),
+    }
+}
+
+/// `superseded` is set once a retry took over this write's unfinished files.
 fn render_record(
     record: &TagWriteRecord,
+    superseded: bool,
     busy: bool,
     cx: &mut Context<FilesAndTags>,
 ) -> AnyElement {
     let id = record.id;
     let finished = !matches!(record.state, JobState::Queued | JobState::Running(_));
-    let retryable = record
-        .targets
-        .iter()
-        .any(|(_, s)| service::target_from_storage(s).retryable())
-        || record
-            .sidecars
-            .iter()
-            .any(|(_, s)| service::sidecar_from_storage(s).retryable());
-    let restorable = !record.backups_discarded;
-    let has_backups = restorable
+    let retryable = !superseded
         && (record
             .targets
             .iter()
-            .any(|(_, s)| matches!(s, TagTargetState::Written { .. }))
+            .any(|(_, s)| service::target_from_storage(s).retryable())
             || record
                 .sidecars
                 .iter()
-                .any(|(s, state)| *state == TagSidecarState::Written && !s.replace.is_empty()));
+                .any(|(_, s)| service::sidecar_from_storage(s).retryable()));
+    let restorable = !record.backups_discarded;
+    let has_backups = restorable
+        && (record.targets.iter().any(|(_, s)| {
+            matches!(
+                s,
+                TagTargetState::Written { .. } | TagTargetState::Restored { .. }
+            )
+        }) || record
+            .sidecars
+            .iter()
+            .any(|(s, state)| *state == TagSidecarState::Written && !s.replace.is_empty()));
     let heading = format!(
         "{} · {}{}",
         write_time(record.created_at_ms),
@@ -868,7 +896,7 @@ fn render_record(
                 .map(|(i, (sidecar, state))| {
                     let text = format!(
                         "{}: {}",
-                        sidecar.directory.join(&sidecar.file_name).display(),
+                        display_path(&sidecar.directory.join(&sidecar.file_name)),
                         match state {
                             TagSidecarState::Pending => "Not written".to_owned(),
                             TagSidecarState::Written => "Saved".to_owned(),
