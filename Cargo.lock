@@ -5264,9 +5264,11 @@ dependencies = [
  "cc",
  "parabolica-domain",
  "parabolica-provider-contracts",
+ "raw-window-handle",
  "sha2 0.10.9",
  "url",
  "windows 0.62.2",
+ "windows-future 0.3.2",
  "winreg",
 ]
 

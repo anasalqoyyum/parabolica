@@ -12,17 +12,28 @@ parabolica-provider-contracts.workspace = true
 url = "=2.5.8"
 
 [target.'cfg(windows)'.dependencies]
+raw-window-handle = "=0.6.2"
 winreg = "=0.56.0"
+windows-future = "=0.3.2"
 windows = { version = "=0.62.2", features = [
+    "Foundation",
+    "Media",
+    "Storage_Streams",
     "Win32_Graphics_Gdi",
     "Win32_Devices_FunctionDiscovery",
     "Win32_Foundation",
     "Win32_Media_Audio",
     "Win32_Media_KernelStreaming",
     "Win32_Media_Multimedia",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
     "Win32_System_Com",
     "Win32_System_Com_StructuredStorage",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
     "Win32_System_Variant",
+    "Win32_System_WinRT",
     "Win32_UI_Shell_PropertiesSystem",
     "Win32_Security_Credentials",
     "Win32_UI_Accessibility",

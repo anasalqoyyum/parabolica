@@ -395,6 +395,10 @@ impl Shell {
             })
     }
 
+    pub fn player(&self) -> &Entity<Player> {
+        &self.player
+    }
+
     fn render_settings(&self, current: SettingsSection, cx: &mut Context<Self>) -> AnyElement {
         h_flex()
             .items_start()
@@ -430,6 +434,9 @@ impl Shell {
                         self.listening_device.clone().into_any_element()
                     }
                     SettingsSection::Appearance => AppearanceSettings.into_any_element(),
+                    SettingsSection::Playback => {
+                        crate::ui::system_media::SystemMediaSettings.into_any_element()
+                    }
                     _ => not_available(cx),
                 }),
             )
