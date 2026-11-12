@@ -39,16 +39,45 @@ python3 scripts/render_issue_plan.py
 
 The headless quit test passes even without the synchronous quit handler, because the test executor runs the player's own background shutdown to completion. It confirms quit ordering, not the 200 ms cutoff on a real Windows build.
 
+## Real Windows evidence
+
+Machine: a desktop PC running Windows 11 Pro 26H2 (build 10.0.26300.9711, x64), Rust 1.99.0, output to a USB DAC in shared mode at 44.1 kHz. Source: branch `feat/issue-23-windows-integration` at `d547496` (#23 merged with master `d06b9c8`).
+
+### Check commands
+
+Run from the repository root in Git Bash with `PARABOLICA_ASIO_SDK_DIR` from `scripts/setup-asio.ps1` and a `CARGO_TARGET_DIR` used only for this check:
+
+```sh
+cargo fmt --all --check                                         # passed
+cargo clippy --workspace --all-targets --locked -- -D warnings  # passed
+cargo test --workspace --locked                                 # see below
+cargo build -p parabolica-desktop --locked                      # passed
+```
+
+`cargo test --workspace --locked --no-fail-fast` passed 343 tests, including the six `windows::lifecycle` pipe tests and the `os_events` tests. The first run without `--no-fail-fast` stopped on `credentials::tests::a_credential_persists_across_processes_until_removed`: after the parent deleted the credential, the child process still read it. Rerunning the platform test binary showed the same failure in 3 of 30 runs filtered to `credentials::` and 5 of 15 full runs. #23 does not touch `credentials`, and the filtered runs exclude the lifecycle tests, so this flake belongs to #14's test and is not fixed here. Credential Manager held no `Parabolica*` entries afterwards (`cmdkey /list`).
+
+### The real app
+
+The app ran from `target\debug\parabolica.exe` with `LOCALAPPDATA` pointing at a disposable folder. Test files were synthetic FLAC tones with distinct tags and solid-colour cover art: red, green, blue, and one file without art. Their names used Unicode such as `05 Ünïcødé 日本語 ✓.flac`, and one sat at a 335-character path under `Löng pâth 長い ✓\`. A throwaway .NET program outside the repository did the driving. It used UI Automation for the app, `SendInput` for media keys and `GlobalSystemMediaTransportControlsSessionManager` to read the session, sampling the thumbnail's centre pixel to tell the artwork apart. It also read `ToastNotificationManager.History`, watched a shell hook window for `HSHELL_FLASH`, and sent Win32 messages to the file dialogs' Open, Save and Cancel buttons. These results are separate from the headless tests above.
+
+1. **Media keys and overlay buttons.** Passed. `VK_MEDIA_PLAY_PAUSE`, `VK_MEDIA_NEXT_TRACK` and `VK_MEDIA_PREV_TRACK` paused, resumed and changed the entry with the window focused, behind Windows Terminal and minimized. The player's UIA labels and the session status changed to match. Two other apps' paused sessions stayed paused. `TryTogglePlayPauseAsync`, `TryPlayAsync`, `TryPauseAsync`, `TrySkipNextAsync` and `TrySkipPreviousAsync` reached the player.
+2. **Overlay content.** Passed, except the flyout's app name, which was not observed. The session reported `SourceAppUserModelId` `Parabolica.Desktop`, the playing entry's title, artist and album, a 256×256 thumbnail and Playing/Paused status. Next, Previous and automatic advance (blue → red → green) replaced the text and the thumbnail together. Moving to the file without art showed no thumbnail. At the end of the queue the session showed Stopped with no text. After Clear queue and after the app quit, the session list no longer contained Parabolica. `HKCU\Software\Classes\AppUserModelId\Parabolica.Desktop` held `DisplayName` `Parabolica`, and Notification Center grouped the toast under "Parabolica". The media flyout in Quick Settings was not reachable through UIA on this build, so its app label was not read.
+3. **Privacy.** Passed. With "Show title, artist and artwork" off, the session had empty title, artist and album and no thumbnail while toggle, next, previous and the next-track key still worked. The background-failure toast read "Playback stopped | Open Parabolica for details." The setting stayed off after a restart and the session stayed empty. Turning it back on restored the details and artwork of the paused entry.
+4. **Open with and a second launch.** Passed for command-line launches. Explorer's Open with menu was not used. A cold launch with one file played it, and a cold launch with three files played them in order: Charlie, the Unicode file, then the 335-character path. With the app running, launches with one file and with three files (once while its window was minimized) added them to the running player, restored and focused its window and exited with code 0. Only one `parabolica.exe` remained, and no database-in-use error appeared. A launch without files brought the window forward from minimized and from behind another window.
+5. **Failure notifications.** Passed. Two files were queued, the second was deleted and Windows Terminal was put in front. When playback reached the deleted file, the shell hook received `HSHELL_FLASH` for the Parabolica window and toast history held one "Playback stopped" toast. A second failure replaced it rather than adding one. With details on, the body was "Can't play 08 Doomed.flac: can't read the file: …". The toast banner itself was not caught. Invoking the toast in Notification Center restored the minimized window and focused it.
+6. **Sleep and resume.** Not run. The machine was not suspended, and GPUI receives these events through `RegisterSuspendResumeNotification`, which a test cannot trigger without a real suspend.
+7. **Close and restore.** Passed for closing the window. Closing through UIA's WindowPattern while playing at 0:08 ended the process within about 100 ms. The next launch showed the same entry paused at 0:08. Sign-out and shutdown were not run.
+8. **Native dialogs.** Passed. Open file played a Unicode file and the 335-character file. Add music folder indexed a 309-character Unicode folder ("Album Long · Ärtist Long"). Import M3U8 read a playlist at a 328-character Unicode path with all three entries, including the long path. Export M3U8 wrote a 332-character Unicode path that read back with the same three entries. Cancel in each dialog left the queue, library, playlists and session unchanged, and no exported file appeared.
+9. **UIA exposure.** Passed for the heading, checkbox name and state. Settings › Playback exposes Text "Playback", Text "System media controls" and CheckBox "Show title, artist and artwork" with ToggleState On or Off matching the setting. Narrator itself was not run, heading levels were not read, and the save error was not triggered.
+
+Afterwards no `parabolica.exe` was running, Parabolica's toast history was cleared, and both `HKCU\Software\Classes\AppUserModelId\Parabolica.Desktop`, which did not exist before the run, and the `Notifications\Settings\Parabolica.Desktop` key that Windows created for the toasts were removed.
+
 ## Not verified on Windows
 
-Everything below needs a real Windows build and has not been run:
-
-1. Media keys reach the player with the window focused, unfocused and minimized; the overlay's buttons do the same.
-2. The overlay shows title, artist, album and artwork of the playing entry, changes with Next/Previous and automatic advance without showing the previous entry's artwork, clears when the queue is cleared and after quit, and shows "Parabolica" as the app name.
-3. With "Show title, artist and artwork" off, the overlay and toasts show no track details while the buttons still work.
-4. Open with from Explorer (one file, several files, Unicode names, paths over 260 characters) while the app is closed and while it is running; a second launch without files brings the existing window forward, also when minimized.
-5. A background playback failure flashes the taskbar and shows one toast; clicking it brings the window forward.
-6. Sleep while playing: playback is paused before suspend, nothing plays after resume, the same endpoint stays selected, and Play resumes from the saved position. Repeat with the output device unplugged during sleep.
-7. Closing the window and signing out or shutting down Windows while playing both restore the same entry and position on the next launch.
-8. Native Open file, Add folder and playlist import/export dialogs with Unicode and long paths, and Cancel leaving the session unchanged.
-9. Narrator through UI Automation reads Settings › Playback's heading, the checkbox's name and state, and the save error.
+1. Physical media keys. The checks above used `SendInput`.
+2. The app name shown in the media flyout itself.
+3. Explorer's Open with menu, as opposed to the same command line.
+4. The toast banner appearing on screen.
+5. Sleep while playing: playback is paused before suspend, nothing plays after resume, the same endpoint stays selected, and Play resumes from the saved position. Repeat with the output device unplugged during sleep.
+6. Signing out or shutting down Windows while playing restores the same entry and position on the next launch.
+7. Narrator speech, heading levels and the Settings save error.
