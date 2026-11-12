@@ -83,6 +83,9 @@ pub struct LibraryView {
     generation: u64,
     revision: u64,
     art: HashMap<MediaFileId, Arc<Image>>,
+    /// Files whose `art` entry was loaded after the last finished scan. Others are reloaded,
+    /// keeping their old image on screen until the new one arrives.
+    art_current: HashSet<MediaFileId>,
     art_cancel: CancelToken,
     request: Option<Task<()>>,
     artwork: Option<Task<()>>,
@@ -108,8 +111,10 @@ impl LibraryView {
                         let status = service.status();
                         if status.revision != this.revision {
                             this.revision = status.revision;
-                            if this.status.scanning && !status.scanning {
-                                this.art.clear();
+                            // A short pass can start and finish between two polls, so any idle
+                            // revision may follow a scan that changed artwork.
+                            if !status.scanning {
+                                this.art_current.clear();
                             }
                             this.status = status;
                             this.refresh(false, cx);
@@ -145,6 +150,7 @@ impl LibraryView {
             generation: 0,
             revision: 0,
             art: HashMap::new(),
+            art_current: HashSet::new(),
             art_cancel: CancelToken::new(),
             request: None,
             artwork: None,
@@ -229,7 +235,7 @@ impl LibraryView {
             .items
             .iter()
             .filter_map(|item| item.artwork_file)
-            .filter(|file| !self.art.contains_key(file))
+            .filter(|file| !self.art_current.contains(file))
             .collect::<Vec<_>>();
         let keep = self
             .items
@@ -237,6 +243,7 @@ impl LibraryView {
             .filter_map(|item| item.artwork_file)
             .collect::<HashSet<_>>();
         self.art.retain(|file, _| keep.contains(file));
+        self.art_current.retain(|file| keep.contains(file));
         let cancel = self.art_cancel.clone();
         let generation = self.generation;
         self.artwork = Some(cx.spawn(async move |this, cx| {
@@ -254,14 +261,15 @@ impl LibraryView {
                         let Ok(path) = storage.resolve_local_file(file) else {
                             continue;
                         };
-                        if let Ok(Some(bytes)) = cache.load(file, record.signature, &path, &cancel)
-                        {
+                        if let Ok(bytes) = cache.load(file, record.signature, &path, &cancel) {
                             images.push((
                                 file,
-                                Arc::new(Image::from_bytes(
-                                    ImageFormat::Png,
-                                    bytes.as_ref().clone(),
-                                )),
+                                bytes.map(|bytes| {
+                                    Arc::new(Image::from_bytes(
+                                        ImageFormat::Png,
+                                        bytes.as_ref().clone(),
+                                    ))
+                                }),
                             ));
                         }
                     }
@@ -270,7 +278,13 @@ impl LibraryView {
                 .await;
             let _ = this.update(cx, |this, cx| {
                 if this.generation == generation {
-                    this.art.extend(loaded);
+                    for (file, image) in loaded {
+                        this.art_current.insert(file);
+                        match image {
+                            Some(image) => this.art.insert(file, image),
+                            None => this.art.remove(&file),
+                        };
+                    }
                     cx.notify();
                 }
             });
