@@ -181,6 +181,17 @@ impl Drop for TagService {
     }
 }
 
+/// Whether `path` is the player's open file. Library roots are canonical (`\\?\C:\…` on
+/// Windows) while a file opened directly may not be, so both sides are canonicalized.
+fn is_open(in_use: &Mutex<Option<PathBuf>>, path: &Path) -> bool {
+    let Some(open) = lock(in_use).clone() else {
+        return false;
+    };
+    open == path
+        || std::fs::canonicalize(&open)
+            .is_ok_and(|open| std::fs::canonicalize(path).is_ok_and(|path| open == path))
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -484,7 +495,7 @@ impl Worker {
                 backup_dir: &self.backups,
             },
             &mut ledger,
-            &|path| lock(&in_use).as_deref() == Some(path),
+            &|path| is_open(&in_use, path),
             cancel,
             &NoHooks,
         );
@@ -514,7 +525,7 @@ impl Worker {
         let TagTargetState::Written { signature, backup } = state else {
             return Err("This file has no written content to restore".into());
         };
-        if lock(&self.in_use).as_deref() == Some(target.path.as_path()) {
+        if is_open(&self.in_use, &target.path) {
             return Err("Stop playback of this file before restoring it".into());
         }
         let temp = job::temp_path(&target.path, id).with_extension("restore");

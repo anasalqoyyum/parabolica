@@ -104,6 +104,11 @@ fn library() -> Library {
     let albums = index(&storage, &root);
     assert_eq!(albums.len(), 1, "{albums:?}");
     let album = albums[0];
+    // Library roots are canonical; on Windows that is a `\\?\` path.
+    let files = files
+        .into_iter()
+        .map(|file| fs::canonicalize(file).unwrap())
+        .collect();
     Library {
         dir,
         storage,
