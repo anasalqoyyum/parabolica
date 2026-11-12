@@ -65,7 +65,8 @@ pub struct Shell {
     scanner: Entity<crate::ui::replaygain::scanner::Scanner>,
     queue: Entity<crate::ui::queue::QueueView>,
     playlists: Entity<crate::ui::playlists::PlaylistsView>,
-    _subscriptions: [Subscription; 5],
+    tags: Entity<crate::ui::tags::FilesAndTags>,
+    _subscriptions: [Subscription; 6],
 }
 
 impl Shell {
@@ -84,6 +85,8 @@ impl Shell {
         let playlists = cx.new(|cx| crate::ui::playlists::PlaylistsView::new(commands, window, cx));
         let library = cx.new(|cx| LibraryView::new(player.clone(), cx));
         let scanner = cx.new(|cx| crate::ui::replaygain::scanner::Scanner::new(player.clone(), cx));
+        let tags =
+            cx.new(|cx| crate::ui::tags::FilesAndTags::new(player.clone(), library.clone(), cx));
         let search_library = library.clone();
         let subscriptions = [
             cx.subscribe(
@@ -98,6 +101,14 @@ impl Shell {
                         }
                     });
                     this.navigate(Page::ReplayGain, cx);
+                },
+            ),
+            cx.subscribe(
+                &library,
+                |this, _, event: &crate::ui::library::EditTagsRequested, cx| {
+                    this.tags
+                        .update(cx, |tags, cx| tags.open_album(event.0, cx));
+                    this.navigate(Page::FilesAndTags, cx);
                 },
             ),
             cx.subscribe(
@@ -135,6 +146,7 @@ impl Shell {
             scanner,
             queue,
             playlists,
+            tags,
             _subscriptions: subscriptions,
         }
     }
@@ -337,7 +349,10 @@ impl Shell {
             .flex_1()
             .min_h_0()
             .when(
-                matches!(page, Page::Settings(_) | Page::ReplayGain),
+                matches!(
+                    page,
+                    Page::Settings(_) | Page::ReplayGain | Page::FilesAndTags
+                ),
                 |view| view.overflow_y_scroll(),
             )
             .px_8()
@@ -376,6 +391,7 @@ impl Shell {
                 Page::Queue => self.queue.clone().into_any_element(),
                 Page::Playlists => self.playlists.clone().into_any_element(),
                 Page::ReplayGain => self.scanner.clone().into_any_element(),
+                Page::FilesAndTags => self.tags.clone().into_any_element(),
             })
     }
 

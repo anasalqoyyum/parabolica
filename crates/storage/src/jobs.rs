@@ -309,7 +309,7 @@ fn kind_from_sql(text: &str) -> Result<JobKind, StorageError> {
     })
 }
 
-fn state_to_sql(state: &JobState) -> (&'static str, Option<&str>) {
+pub(crate) fn state_to_sql(state: &JobState) -> (&'static str, Option<&str>) {
     match state {
         JobState::Queued => ("queued", None),
         JobState::Running(_) => ("running", None),
@@ -321,7 +321,7 @@ fn state_to_sql(state: &JobState) -> (&'static str, Option<&str>) {
     }
 }
 
-fn state_from_sql(
+pub(crate) fn state_from_sql(
     text: &str,
     reason: Option<String>,
     progress: Progress,

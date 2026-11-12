@@ -19,6 +19,7 @@ pub mod recovery;
 pub mod replaygain;
 pub mod session;
 pub mod sources;
+pub mod tag_writes;
 
 pub use database::Storage;
 pub use error::{Incompatibility, OpenError, RecoveryOption, StorageError};
