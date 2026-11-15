@@ -77,7 +77,7 @@ def main():
             args.extend([str(raw), str(rate), str(channels)])
             paths.append((path, rate))
         output = run(str(executable), *args).decode().splitlines()
-        rows = ["# Independent libebur128 1.2.6; source " + URL, "# source_sha256=" + archive_hash, "# encoder=" + version, "# fixture\trate\tlufs\tsample_peak\ttrue_peak\tsha256"]
+        rows = ["# Independent libebur128 1.2.6; source " + URL, "# source_sha256=" + archive_hash, "# encoder=" + version, "# mono=EBUR128_DUAL_MONO; peaks retain the single source channel", "# fixture\trate\tlufs\tsample_peak\ttrue_peak\tsha256"]
         for (path, rate), line in zip(paths, output):
             fields = line.split("\t")
             rows.append("\t".join([path.name, str(rate), *fields[2:], hashlib.sha256(path.read_bytes()).hexdigest()]))

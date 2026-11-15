@@ -6,6 +6,34 @@ use std::path::PathBuf;
 fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/replaygain")
 }
+fn analyze_fixture(
+    name: &str,
+    method: PeakMethod,
+) -> parabolica_domain::gain::analysis::TrackAnalysis {
+    let path = fixture_root().join("fixtures").join(name);
+    let mut decoder = Decoder::open(&path).unwrap();
+    let info = decoder.info();
+    if name == "mono-44100.flac" {
+        assert_eq!(info.positioned_channel_mask(), Some(1));
+    }
+    let mut analyzer = Analyzer::new(
+        info.format.rate.hz(),
+        info.positioned_channel_mask().unwrap(),
+        method,
+    )
+    .unwrap();
+    let mut pcm = Vec::new();
+    loop {
+        pcm.clear();
+        if decoder.next_block(&mut pcm).unwrap() == 0 {
+            break;
+        }
+        analyzer.add(&pcm).unwrap();
+    }
+    let actual = analyzer.finish().unwrap();
+    assert_eq!(actual.frames, decoder.position());
+    actual
+}
 #[test]
 fn pinned_fixtures_match_independent_c_libebur128() {
     let root = fixture_root();
@@ -25,24 +53,7 @@ fn pinned_fixtures_match_independent_c_libebur128() {
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
         assert_eq!(digest, fields[5]);
-        let mut decoder = Decoder::open(&path).unwrap();
-        let info = decoder.info();
-        let mut analyzer = Analyzer::new(
-            info.format.rate.hz(),
-            info.positioned_channel_mask().unwrap(),
-            PeakMethod::TruePeak,
-        )
-        .unwrap();
-        let mut pcm = Vec::new();
-        loop {
-            pcm.clear();
-            if decoder.next_block(&mut pcm).unwrap() == 0 {
-                break;
-            }
-            analyzer.add(&pcm).unwrap();
-        }
-        let actual = analyzer.finish().unwrap();
-        assert_eq!(actual.frames, decoder.position());
+        let actual = analyze_fixture(fields[0], PeakMethod::TruePeak);
         let expected = fields[2].parse::<f64>().unwrap();
         if expected.is_finite() {
             assert!(
@@ -63,15 +74,80 @@ fn pinned_fixtures_match_independent_c_libebur128() {
             actual.peak,
             fields[4]
         );
-        if tracks.len() < 3 {
-            tracks.push(actual);
-        }
+        tracks.push(actual);
     }
-    let album = analyze::album(&tracks).unwrap();
+    let album = analyze::album(&tracks[..3]).unwrap();
     let gain = album.gain_db().unwrap();
     let peak = album.peak;
     assert!((gain - (-18.0 + 8.104275638582)).abs() <= 0.1);
     assert!((peak - 0.400234699249).abs() < 0.00001);
+    let reference = include_str!("../../../../../../tests/replaygain/references.tsv")
+        .lines()
+        .find_map(|line| line.strip_prefix("# album\tall\t"))
+        .unwrap()
+        .split('\t')
+        .map(|value| value.parse::<f64>().unwrap())
+        .collect::<Vec<_>>();
+    let all = analyze::album(&tracks).unwrap();
+    assert!((all.loudness_lufs.unwrap() - reference[0]).abs() <= 0.1);
+    assert!((all.peak - reference[1]).abs() < 0.00001);
+}
+
+#[test]
+fn pinned_foobar2000_track_and_album_gains_match_in_both_peak_modes() {
+    for (method, label) in [
+        (PeakMethod::Sample, "sample"),
+        (PeakMethod::TruePeak, "true"),
+    ] {
+        let tracks = include_str!("../../../../../../tests/replaygain/references.tsv")
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .map(|line| {
+                let name = line.split('\t').next().unwrap();
+                (name, analyze_fixture(name, method))
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for line in std::fs::read_to_string(fixture_root().join("foobar2000.tsv"))
+            .unwrap()
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .skip(1)
+        {
+            let fields = line.split('\t').collect::<Vec<_>>();
+            if fields[2] != label {
+                continue;
+            }
+            let actual = match fields[0] {
+                "track" => tracks[fields[1]].gain_db(),
+                "album" => {
+                    let members = tracks
+                        .iter()
+                        .filter(|(name, _)| match fields[1] {
+                            "all-nine" => true,
+                            "mixed-rate-three" => matches!(
+                                **name,
+                                "loud-44100.flac" | "quiet-96000.flac" | "gated-48000.flac"
+                            ),
+                            group => panic!("Unknown reference group {group}"),
+                        })
+                        .map(|(_, track)| track.clone())
+                        .collect::<Vec<_>>();
+                    analyze::album(&members).unwrap().gain_db()
+                }
+                kind => panic!("Unknown reference kind {kind}"),
+            };
+            if fields[3] == "unavailable" {
+                assert_eq!(actual, None, "{} {label}", fields[1]);
+            } else {
+                let expected = fields[3].parse::<f64>().unwrap();
+                assert!(
+                    (actual.unwrap() - expected).abs() <= 0.1,
+                    "{} {label}: {actual:?} vs {expected}",
+                    fields[1]
+                );
+            }
+        }
+    }
 }
 
 #[gpui_kit::test]

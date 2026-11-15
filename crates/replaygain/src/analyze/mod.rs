@@ -35,21 +35,26 @@ pub struct Analyzer {
 impl Analyzer {
     /// `mask` uses the WAVEFORMATEXTENSIBLE/Symphonia positioned-channel order.
     pub fn new(rate: u32, mask: u64, method: PeakMethod) -> Result<Self, AnalysisError> {
-        if !(8000..=768000).contains(&rate) || mask == 0 || mask & !0x63f != 0 {
+        let mono = mask.count_ones() == 1;
+        if !(8000..=768000).contains(&rate) || mask == 0 || (!mono && mask & !0x63f != 0) {
             return Err(AnalysisError::UnsupportedFormat);
         }
-        let channels = (0..11)
-            .filter(|bit| mask & (1 << bit) != 0)
-            .map(|bit| match bit {
-                0 => Channel::Left,
-                1 => Channel::Right,
-                2 => Channel::Center,
-                3 => Channel::Unused,
-                4 | 9 => Channel::LeftSurround,
-                5 | 10 => Channel::RightSurround,
-                _ => unreachable!(),
-            })
-            .collect::<Vec<_>>();
+        let channels = if mono {
+            vec![Channel::DualMono]
+        } else {
+            (0..11)
+                .filter(|bit| mask & (1 << bit) != 0)
+                .map(|bit| match bit {
+                    0 => Channel::Left,
+                    1 => Channel::Right,
+                    2 => Channel::Center,
+                    3 => Channel::Unused,
+                    4 | 9 => Channel::LeftSurround,
+                    5 | 10 => Channel::RightSurround,
+                    _ => unreachable!(),
+                })
+                .collect::<Vec<_>>()
+        };
         let mode = Mode::M
             | match method {
                 PeakMethod::Sample => Mode::SAMPLE_PEAK,
