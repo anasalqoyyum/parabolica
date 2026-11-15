@@ -13,6 +13,7 @@ Read [the agent workflow](AGENT_WORKFLOW.md) before assigning work. Issue status
 - [#6 Implement folder indexing and the local collection UI](https://github.com/anasalqoyyum/parabolica/issues/6): [implementation and verification](local-collection.md)
 - [#7 Implement queues, playlists, history and session restoration](https://github.com/anasalqoyyum/parabolica/issues/7): [implementation and verification](queue-and-session.md)
 - [#8 Implement WASAPI Exclusive and listening-device controls](https://github.com/anasalqoyyum/parabolica/issues/8): [implementation and verification](wasapi-and-listening-device.md)
+- [#10 Implement album and track ReplayGain analysis with the scanner UI](https://github.com/anasalqoyyum/parabolica/issues/10): [implementation and verification](replaygain-analysis.md)
 - [#23 Integrate Windows media controls, dialogs and application lifecycle](https://github.com/anasalqoyyum/parabolica/issues/23): [implementation and verification](windows-integration.md)
 
 ## Dependencies and parallel work

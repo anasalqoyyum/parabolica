@@ -1,6 +1,6 @@
 # ReplayGain analysis
 
-Issue #10 implements ReplayGain scanning against `ce428813a9590bc5ee1b1a4cd2869ecb89694f2e`. This document separates automated measurements from native Windows evidence.
+Issue #10 implements ReplayGain scanning. The initial evidence below used base `ce428813a9590bc5ee1b1a4cd2869ecb89694f2e`; the Windows re-verification section covers the merged implementation. This document separates automated measurements from native Windows evidence.
 
 ## Entry point and scope
 
@@ -38,7 +38,7 @@ The worker is serial and all storage, file hashing and decoding happen off the U
 
 The reference runner compiles the C implementation libebur128 1.2.6 from its pinned release archive, SHA-256 `baa7fc293a3d4651e244d8022ad03ab797ca3c2ad8442c43199afe8059faa613`. It receives PCM decoded by FFmpeg 8.0.1 and calls C `ebur128_loudness_global_multiple` for album aggregation. The application's tests decode the pinned FLAC with Symphonia and use the Rust analyzer, then compare against those recorded C measurements. This checks an independent implementation and decoder; the additional Rust multi-state test only checks internal consistency and is not independent reference evidence.
 
-Tolerances are 0.1 dB integrated loudness/gain, 1e-10 linear sample peak, and 1e-5 linear true peak. The true-peak tolerance allows floating-point differences in the C/Rust interpolation implementations. The mixed-rate three-track album reference is -8.104275638582 LUFS, gain -9.895724361418 dB, and true peak 0.400234699249. No foobar2000 comparison has been performed yet; the independent pinned RG2 measurement route is used here.
+Tolerances against the independent C implementation are 0.1 dB integrated loudness/gain, 1e-10 linear sample peak, and 1e-5 linear true peak. The true-peak tolerance allows floating-point differences in the C/Rust interpolation implementations. The mixed-rate three-track album reference is -8.104275638582 LUFS, gain -9.895724361418 dB, and true peak 0.400234699249. The initial validation used this independent RG2 route. The Windows re-verification below adds the pinned foobar2000 comparison and documents its mono and peak-estimator differences.
 
 Regenerate with `uv run python tests/replaygain/generate.py`, using FFmpeg 8.0.1, curl, tar and a C compiler. The script verifies the reference source checksum and records the encoder build. Generated fixtures/reference output must be regenerated through that script.
 
@@ -118,3 +118,48 @@ Base commit is `ce428813a9590bc5ee1b1a4cd2869ecb89694f2e`. The initial validatio
 Both `Parabolica-Issue10-20261108` and `Parabolica-Issue10-silence-20261109` were removed after closing their owned test apps. Cleanup confirms both namespaces absent, no owned process remains and `cmdkey /list:Parabolica-Issue10*` is empty. Two synthetic Credential Manager entries from the workspace tests remained and were deleted by their exact process/timestamp targets. Entries predating this assignment were preserved. `credential-owned-cleanup-confirmation.txt` records the OS confirmation.
 
 The dedicated Cargo target directories, reference source archive, local evidence and Pictures screenshots remain for review. No real library, app settings, credentials or Windows settings were changed. The implementation and native checks described here ran locally. PR checks and host review are recorded separately on [PR #50](https://github.com/anasalqoyyum/parabolica/pull/50).
+
+## Windows re-verification, 2026-11-15
+
+This run verifies current `origin/master`, `e969b2692d053dbbcfd29786d220f5043e0605df`, including merged scanner [PR #50](https://github.com/anasalqoyyum/parabolica/pull/50) and the later tag-editor and Windows-lifecycle integration. Host was Windows 11 Pro build 26300, with Rust/Cargo 1.99.0 and `x86_64-pc-windows-msvc`. The debug `parabolica.exe` SHA-256 was `0CC18EB01139F5004ED5779F5DEC21D6633107CE3025001862C46574E5F2500B`.
+
+### Windows commands
+
+Native PowerShell ran the declared checks serially with the default ASIO-enabled desktop configuration:
+
+```powershell
+$env:CARGO_TARGET_DIR = 'C:\Users\doubl\.cargo-targets\issue10-windows-verification-23ac4771'
+. ./scripts/setup-asio.ps1
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+cargo build -p parabolica-desktop --locked
+```
+
+All four commands passed. Workspace tests reported 343 passed, 0 failed and 1 ignored credential child-process helper, whose parent test invokes it separately. The pinned independent C fixture comparison passed. No flaky audio-test failure or rerun occurred. These are local Windows results; the evidence PR's CI is recorded on GitHub.
+
+### foobar2000 reference
+
+Portable foobar2000 2.26.2 x64 scanned fresh copies of all nine fixtures, individually and as the same all-nine/mixed-rate album groups in `references.tsv`, at the -18 LUFS reference. The built-in BS.1770 scanner ran with HD downsampling off, in sample-peak and true-peak modes. True peak used explicit ARDFTSRC at 192000 Hz, High quality and no excluded rates. No installer ran. The official package's SHA-256, signer, procedure, per-track/album gains and peaks, app values and comparison are preserved in [`tests/replaygain/foobar2000.tsv`](../../tests/replaygain/foobar2000.tsv) and its [README](../../tests/replaygain/README.md#foobar2000-comparison).
+
+Non-mono track gains differ by at most 0.004892 dB, and the mixed-rate album by 0.004276 dB, below the 0.1 dB tolerance. Sample peaks agree to foobar2000's six-decimal tag precision. Silence and sub-400 ms audio have no gain in either application. The mono track and all-nine album differ because foobar2000 measures mono as dual mono. A separate run of the pinned C libebur128 1.2.6 reference with only mono duplicated to left/right reproduces both foobar2000 gains within 0.1 dB. The README records the exact control values.
+
+True-peak estimates differ with the interpolation/resampling method. The largest recorded difference is 0.010790443 linear amplitude on the intersample fixture. A native foobar2000 control changed only its peak estimate when the resampler setting changed; gain stayed fixed. The app retains its independent-C-verified interpolation contract. These are documented algorithm differences permitted by TECH_SPEC validation step 3. The C/Rust 1e-5 peak tolerance is unchanged; it is not presented as a foobar2000 true-peak match. No analyzer or other production code changed.
+
+### Native app observations
+
+UI Automation drove the current binary's Windows accessibility tree in `%LOCALAPPDATA%=C:\Users\doubl\AppData\Local\Temp\Parabolica-Issue10-20261115`. The app indexed only copied synthetic fixtures through its native folder picker.
+
+1. Selected the three-track two-disc album, reviewed tag grouping, accepted, scanned True peak and saved to the app library. Album gain was `-9.895724361418488` dB and peak `0.40023472905158997`. Closing and reopening preserved Saved status, track results and the analyzer/target provenance. A reviewed resume reused all three complete measurements and saved again.
+2. Reviewed Group by disc, scanned Sample peak and saved both groups. Disc 1 displayed -11.06 dB and 0.399994; Disc 2 displayed -7.95 dB and 0.299988.
+3. Opened a copied track for real WASAPI Shared playback, with disposable app volume at zero and Repeat one. The player reported `LG ULTRAGEAR (NVIDIA High Definition Audio)` at 48 kHz. An accepted one-album scan displayed Waiting for playback, 0/3 tracks. Cancel scan produced Cancelled with Save disabled. After pausing, Review and resume reused all three measurements and saved a complete album. This verifies output-stream scheduling, not an audible listening test.
+4. Moved a copied member outside its indexed path. Saved groups became Stale. Review showed Missing; the accepted scan ended Incomplete with Album result unavailable and Save disabled. Restored the copy, rescanned and saved successfully. Adding a fourth copied member to that album then invalidated its saved analysis and disabled Save again.
+5. Selected all nine fixtures as one album and completed both peak modes, including silence, short audio, mono and 5.1. Saved both runs, closed and reopened, and verified the latest saved result and provenance. Closed-database snapshots retain measurements, source digests, membership, cancellation/failure states and publication selections. The TSV app columns come from these measurements and groups, with its documented sample-peak mixed-album reaggregation.
+
+The UIA driver needed selector/timing corrections for native dialogs and the Cancel scan label. Corrected actions passed without an app-code change. These native observations are separate from headless GPUI and service tests.
+
+### Evidence and cleanup
+
+Local commands, raw foobar2000 tags/settings captures, UIA trees/actions, database snapshots, binary/fixture hashes, cleanup confirmations and the append-only `decisions.tsv` are retained at `C:\Users\doubl\AppData\Local\Temp\parabolica-issue10-verification-20261115`. No screenshots were taken. The nine app copies matched source SHA-256 values before removal, and all pinned source fixture hashes remained unchanged. Both owned apps were closed; the native namespace, portable foobar2000 folder, downloaded package and scanner copies were removed. `cmdkey /list:Parabolica-Issue10*` returned NONE, and the complete `cmdkey /list:Parabolica*` inventory matched the pre-run baseline. Existing credentials were preserved.
+
+All issue #10 acceptance criteria have local evidence. Manual Narrator, 150/200% DPI and performance checks remain with #25/#26/#35. ReplayGain playback application/protection and file-tag interoperability remain with #11, and tag writing with #12. This run makes no claim that those separate issues are complete.

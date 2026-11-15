@@ -1,0 +1,29 @@
+# foobar2000 2.26.2 x64; native Windows UI Automation, 2026-11-15
+# package=https://www.foobar2000.org/downloads/foobar2000-x64_v2.26.2.exe
+# package_sha256=ffa739f87d9c374cb030426a2ab4bfb37959d0dbb892fdc742654c14d127f795
+# BS.1770; target=-18 LUFS; HD downsampling=off; algorithm tags=on; quiet=off
+# true peak=ARDFTSRC; target rate=192000 Hz; quality=high; excluded rates=empty
+# app_source=e969b2692d053dbbcfd29786d220f5043e0605df; see README.md for differences
+kind	name	peak_method	foobar_gain_db	foobar_peak	app_gain_db	app_peak
+track	loud-44100.flac	sample	-11.06	0.399994	-11.060142234132	0.399993896484
+track	quiet-96000.flac	sample	+14.98	0.019989	14.984088180301	0.019989013672
+track	gated-48000.flac	sample	-7.95	0.299988	-7.950878534544	0.299987792969
+track	intersample-48000.flac	sample	-20.44	0.636383	-20.436332023586	0.636383056641
+track	silence-44100.flac	sample	unavailable	0.000000	unavailable	0.000000000000
+track	short-48000.flac	sample	unavailable	0.399994	unavailable	0.399993896484
+track	mono-44100.flac	sample	-10.04	0.399994	-7.033439952783	0.399993896484
+track	surround-48000.flac	sample	+2.79	0.799988	2.785108415513	0.799987792969
+track	highrate-192000.flac	sample	-11.03	0.399994	-11.026134616949	0.399993896484
+album	all-nine	sample	-12.58	0.799988	-12.349981524686	0.799987792969
+album	mixed-rate-three	sample	-9.90	0.399994	-9.895724361418	0.399993896484
+track	loud-44100.flac	true	-11.06	0.400004	-11.060142234132	0.400234729052
+track	quiet-96000.flac	true	+14.98	0.020014	14.984088180301	0.020012408495
+track	gated-48000.flac	true	-7.95	0.300170	-7.950878534544	0.300196617842
+track	intersample-48000.flac	true	-20.44	0.899982	-20.436332023586	0.910772442818
+track	silence-44100.flac	true	unavailable	0.000000	unavailable	0.000000000000
+track	short-48000.flac	true	unavailable	0.400007	unavailable	0.400249361992
+track	mono-44100.flac	true	-10.04	0.400004	-7.033439952783	0.400234729052
+track	surround-48000.flac	true	+2.79	0.799987	2.785108415513	0.800702989101
+track	highrate-192000.flac	true	-11.03	0.399994	-11.026134616949	0.399993896484
+album	all-nine	true	-12.58	0.899982	-12.349981524686	0.910772442818
+album	mixed-rate-three	true	-9.90	0.400004	-9.895724361418	0.400234729052
