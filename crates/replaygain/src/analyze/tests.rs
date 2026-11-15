@@ -59,15 +59,40 @@ fn silence_short_audio_and_invalid_samples_are_explicit() {
     assert!(a.add(&[f64::NAN, 0.0]).is_err());
     assert!(a.add(&[0.0]).is_err());
     assert!(a.finish().is_err());
-    assert!(Analyzer::new(48000, 1 << 8, PeakMethod::Sample).is_err());
+    assert!(Analyzer::new(48000, (1 << 8) | 1, PeakMethod::Sample).is_err());
 }
 #[test]
 fn lfe_is_excluded_from_loudness_but_kept_in_peaks() {
-    let mut a = Analyzer::new(48000, 8, PeakMethod::TruePeak).unwrap();
-    a.add(&vec![0.5; 48000]).unwrap();
+    let mut a = Analyzer::new(48000, 0x3f, PeakMethod::TruePeak).unwrap();
+    let pcm = (0..48000)
+        .flat_map(|_| [0.0, 0.0, 0.0, 0.5, 0.0, 0.0])
+        .collect::<Vec<_>>();
+    a.add(&pcm).unwrap();
     let result = a.finish().unwrap();
     assert_eq!(result.loudness_lufs, None);
     assert!(result.peak >= 0.5);
+}
+#[test]
+fn mono_matches_identical_stereo_for_every_single_channel_position_without_changing_peaks() {
+    let rate = 48000;
+    let stereo = tone(rate, 0.8, 0.4);
+    let mono = stereo.iter().step_by(2).copied().collect::<Vec<_>>();
+    for method in [PeakMethod::Sample, PeakMethod::TruePeak] {
+        let expected = measure(rate, &stereo, method);
+        for bit in 0..64 {
+            let mut analyzer = Analyzer::new(rate, 1 << bit, method).unwrap();
+            for block in mono.chunks(1033) {
+                analyzer.add(block).unwrap();
+            }
+            let actual = analyzer.finish().unwrap();
+            assert!(actual.valid());
+            assert_eq!(actual.channel_mask, 1 << bit);
+            assert_eq!(actual.frames, expected.frames);
+            assert!((actual.loudness_lufs.unwrap() - expected.loudness_lufs.unwrap()).abs() < 1e-9);
+            assert_eq!(actual.sample_peak, expected.sample_peak);
+            assert_eq!(actual.peak, expected.peak);
+        }
+    }
 }
 #[test]
 fn relative_gate_excludes_quiet_passages() {

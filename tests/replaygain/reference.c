@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
         unsigned rate=strtoul(argv[2+i*3],NULL,10), channels=strtoul(argv[3+i*3],NULL,10);
         states[i]=ebur128_init(channels,rate,EBUR128_MODE_I|EBUR128_MODE_TRUE_PEAK);
         if (!states[i]) return 3;
+        if (channels==1 && ebur128_set_channel(states[i],0,EBUR128_DUAL_MONO)) return 3;
         FILE *f=fopen(argv[1+i*3],"rb"); if (!f) return 4;
         double buf[65536]; size_t count;
         while ((count=fread(buf,sizeof(double),65536/channels*channels,f))) {
@@ -32,6 +33,7 @@ int main(int argc, char **argv) {
     for(size_t i=0;i<n;i++) {
         unsigned rate=strtoul(argv[2+i*3],NULL,10), channels=strtoul(argv[3+i*3],NULL,10);
         ebur128_destroy(&states[i]);states[i]=ebur128_init(channels,rate,EBUR128_MODE_I);
+        if (!states[i] || (channels==1 && ebur128_set_channel(states[i],0,EBUR128_DUAL_MONO))) return 3;
         FILE *f=fopen(argv[1+i*3],"rb");double buf[65536];size_t count;
         while((count=fread(buf,sizeof(double),65536/channels*channels,f)))if(ebur128_add_frames_double(states[i],buf,count/channels))return 8;
         fclose(f);

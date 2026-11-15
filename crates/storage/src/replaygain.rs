@@ -392,7 +392,7 @@ impl Storage {
     /// Publication is separate from checkpoints and refuses every incomplete or invalidated group.
     pub fn publish_scan(&self, scan: JobId) -> Result<(), StorageError> {
         self.write(move |tx| {
-            let changed=tx.execute("UPDATE rg_scans SET saved=1 WHERE id=?1 AND state='ready' AND NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND stale=1) AND NOT EXISTS(SELECT 1 FROM rg_members WHERE scan_id=?1 AND state<>'done') AND (mode='tracks' OR NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND peak IS NULL))",[scan.to_bytes()])?;
+            let changed=tx.execute("UPDATE rg_scans SET saved=1 WHERE id=?1 AND analyzer=?2 AND target_lufs=?3 AND state='ready' AND NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND stale=1) AND NOT EXISTS(SELECT 1 FROM rg_members WHERE scan_id=?1 AND state<>'done') AND (mode='tracks' OR NOT EXISTS(SELECT 1 FROM rg_groups WHERE scan_id=?1 AND peak IS NULL))",params![scan.to_bytes(),ANALYZER,TARGET_LUFS])?;
             if changed!=1 { return Err(StorageError::Conflict("Rescan incomplete or stale results before saving".into())); }
             tx.execute("INSERT INTO rg_publications(file_id,scan_id) SELECT file_id,scan_id FROM rg_members WHERE scan_id=?1 ON CONFLICT(file_id) DO UPDATE SET scan_id=excluded.scan_id", [scan.to_bytes()])?;
             Ok(())
@@ -430,6 +430,7 @@ impl Storage {
             else {
                 return Ok(None);
             };
+            let stale = stale || analyzer != ANALYZER || target_lufs != TARGET_LUFS;
             let mut stmt = tx.prepare(&format!("{MEASUREMENT_COLUMNS} WHERE id=?1"))?;
             let mut rows = stmt.query([mid])?;
             let track = measurement(rows.next()?.ok_or_else(invalid)?)?;
@@ -465,7 +466,10 @@ impl Storage {
                     }
                     let mut albums=tx.prepare("SELECT album_id FROM rg_group_albums WHERE scan_id=?1 AND group_ordinal=?2 ORDER BY album_id")?;
                     let albums=albums.query_map(params![id.to_bytes(),ordinal],|r|r.get::<_,Vec<u8>>(0))?.collect::<Result<Vec<_>,_>>()?.into_iter().map(|b|Ok((ReleaseId::from_bytes(b.try_into().map_err(|_|invalid())?),Vec::new()))).collect::<Result<Vec<_>,StorageError>>()?;
-                    record.groups.push(GroupResult { reviewed:ReviewedGroup { name:g.get(1)?,warning:g.get(2)?,members:results.iter().map(|m|ScanMember{file:m.file,title:m.title.clone()}).collect(),albums },stale:g.get(3)?,gain_db:g.get(4)?,peak:g.get(5)?,members:results });
+                    record.groups.push(GroupResult { reviewed:ReviewedGroup { name:g.get(1)?,warning:g.get(2)?,members:results.iter().map(|m|ScanMember{file:m.file,title:m.title.clone()}).collect(),albums },stale:g.get::<_,bool>(3)? || record.analyzer != ANALYZER || record.target_lufs != TARGET_LUFS,gain_db:g.get(4)?,peak:g.get(5)?,members:results });
+                }
+                if record.analyzer != ANALYZER || record.target_lufs != TARGET_LUFS {
+                    record.error.get_or_insert_with(|| "Analysis version or target changed; review and rescan before saving".into());
                 }
                 if record.groups.iter().any(|g|g.stale) && matches!(record.state,ScanState::Ready) { record.state=ScanState::Stale; }
                 records.push(record);
@@ -652,6 +656,87 @@ mod tests {
         scan
     }
 
+    #[test]
+    fn obsolete_analyzer_preserves_history_but_requires_fresh_measurements_and_publication() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("app.db");
+        let storage = Storage::open(&path).unwrap();
+        let mono = MediaFileId::generate();
+        let stereo = MediaFileId::generate();
+        let saved = ready_track_scan(&storage, &[mono, stereo]);
+        storage.publish_scan(saved).unwrap();
+        let preview = ready_track_scan(&storage, &[mono, stereo]);
+        let legacy =
+            "parabolica-rg2/1;ebur128/0.1.10;bs1770-4;400ms/100ms;absolute=-70;relative=-10";
+        storage
+            .write(move |tx| {
+                tx.execute("UPDATE rg_scans SET analyzer=?1", [legacy])?;
+                tx.execute("UPDATE rg_measurements SET analyzer=?1", [legacy])?;
+                tx.execute(
+                    "UPDATE rg_measurements SET channel_mask=4 WHERE file_id=?1",
+                    [mono.to_bytes()],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let signature = FileSignature {
+            size_bytes: 100,
+            modified_unix_nanos: 1_700_000_000_000_000_000,
+            content_digest: Some(ContentDigest([7; 32])),
+        };
+        for file in [mono, stereo] {
+            assert!(
+                storage
+                    .cached_scan_measurement(file, signature.clone(), PeakMethod::Sample)
+                    .unwrap()
+                    .is_none()
+            );
+            let published = storage.published_analysis(file).unwrap().unwrap();
+            assert!(published.stale);
+            assert_eq!(published.analyzer, legacy);
+            assert_eq!(published.scan, saved);
+            assert!(published.track.analysis.valid());
+        }
+        let history = storage.scan_history().unwrap();
+        assert_eq!(history.len(), 2);
+        for record in &history {
+            assert_eq!(record.state, ScanState::Stale);
+            assert_eq!(record.analyzer, legacy);
+            assert_eq!(record.saved, record.id == saved);
+            assert!(record.error.as_ref().unwrap().contains("review and rescan"));
+            assert!(record.groups.iter().all(|g| g.stale));
+            assert!(
+                record
+                    .groups
+                    .iter()
+                    .all(|g| g.members[0].measurement.is_some())
+            );
+        }
+        assert!(storage.publish_scan(saved).is_err());
+        assert!(storage.publish_scan(preview).is_err());
+        let current = ready_track_scan(&storage, &[mono, stereo]);
+        storage.publish_scan(current).unwrap();
+        drop(storage);
+        let reopened = Storage::open(&path).unwrap();
+        assert_eq!(reopened.scan_history().unwrap().len(), 3);
+        for file in [mono, stereo] {
+            let published = reopened.published_analysis(file).unwrap().unwrap();
+            assert!(!published.stale);
+            assert_eq!(published.analyzer, ANALYZER);
+            assert_eq!(published.scan, current);
+            let cached = reopened
+                .cached_scan_measurement(file, signature.clone(), PeakMethod::Sample)
+                .unwrap()
+                .unwrap();
+            assert_eq!(cached.id, published.track.id);
+        }
+        let old = reopened.scan_history().unwrap();
+        assert!(
+            old.iter()
+                .filter(|r| r.id != current)
+                .all(|r| r.state == ScanState::Stale)
+        );
+    }
     #[test]
     fn latest_save_selects_each_file_and_survives_restart_without_stale_fallback() {
         let directory = tempfile::tempdir().unwrap();

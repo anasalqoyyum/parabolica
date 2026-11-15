@@ -3,7 +3,7 @@
 use super::PeakMethod;
 
 pub const ANALYZER: &str =
-    "parabolica-rg2/1;ebur128/0.1.10;bs1770-4;400ms/100ms;absolute=-70;relative=-10";
+    "parabolica-rg2/2;ebur128/0.1.10;bs1770-4;mono=dual;400ms/100ms;absolute=-70;relative=-10";
 pub const TARGET_LUFS: f64 = -18.0;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,7 +45,7 @@ impl TrackAnalysis {
     pub fn valid(&self) -> bool {
         (8000..=768000).contains(&self.sample_rate)
             && self.channel_mask != 0
-            && self.channel_mask & !0x63f == 0
+            && (self.channel_mask.count_ones() == 1 || self.channel_mask & !0x63f == 0)
             && self.frames > 0
             && self.sample_peak.is_finite()
             && self.sample_peak >= 0.0
