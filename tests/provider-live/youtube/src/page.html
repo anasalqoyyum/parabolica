@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parabolica YouTube access spike</title>
+    <style>
+      body { font: 16px system-ui, sans-serif; margin: 24px; background: #f6f6f4; color: #20201e; }
+      main { max-width: 720px; margin: auto; }
+      #player { width: 640px; height: 360px; background: #111; }
+      #player iframe { display: block; }
+      button { margin: 16px 8px 16px 0; padding: 10px 16px; }
+      pre { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>YouTube IFrame access spike</h1>
+      <p>The official player stays visible and owns decoding and audio output.</p>
+      <div id="player"></div>
+      <button id="play" type="button">Play</button>
+      <button id="pause" type="button">Pause</button>
+      <button id="seek" type="button">Seek to 10 seconds</button>
+      <pre id="status">Loading</pre>
+    </main>
+    <script>
+      window.spike = {
+        states: [], errors: [], player: null, ready: false, playing: false, paused: false,
+      };
+      const status = document.querySelector('#status');
+      const report = (state) => {
+        window.spike.states.push({ state, at: performance.now() });
+        status.textContent = `State: ${state}`;
+      };
+      window.onYouTubeIframeAPIReady = () => {
+        const videoId = new URLSearchParams(location.search).get('video');
+        window.spike.player = new YT.Player('player', {
+          width: '640',
+          height: '360',
+          videoId,
+          playerVars: { playsinline: 1, origin: location.origin },
+          events: {
+            onReady: () => {
+              window.spike.ready = true;
+              report('ready');
+            },
+            onStateChange: ({ data }) => {
+              if (data === YT.PlayerState.PLAYING) window.spike.playing = true;
+              if (data === YT.PlayerState.PAUSED) window.spike.paused = true;
+              report(data);
+            },
+            onError: (error) => {
+              window.spike.errors.push(error.data);
+              report(`error-${error.data}`);
+            },
+          },
+        });
+      };
+      document.querySelector('#play').onclick = () => window.spike.player.playVideo();
+      document.querySelector('#pause').onclick = () => window.spike.player.pauseVideo();
+      document.querySelector('#seek').onclick = () => window.spike.player.seekTo(10, true);
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.append(tag);
+    </script>
+  </body>
+</html>

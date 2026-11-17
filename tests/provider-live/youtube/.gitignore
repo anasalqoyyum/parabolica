@@ -1,0 +1,5 @@
+.pnpm-store/
+node_modules/
+evidence/local-*.json
+evidence/local-*.png
+evidence/smoke.json

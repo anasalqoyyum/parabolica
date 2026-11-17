@@ -1,0 +1,15 @@
+{
+  "name": "parabolica-youtube-access-spike",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Disposable Linux browser tests for the visible YouTube IFrame player.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/config.test.js tests/probe.test.js",
+    "probe": "node src/probe.js"
+  },
+  "devDependencies": {
+    "puppeteer-core": "25.8.0"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
