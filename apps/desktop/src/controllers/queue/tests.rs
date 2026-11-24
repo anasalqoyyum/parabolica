@@ -203,7 +203,7 @@ fn playlist_import_likes_play_and_safe_export_run_on_the_worker() {
 }
 
 #[derive(Debug, Clone, Default)]
-struct ClockOutput {
+pub(crate) struct ClockOutput {
     failure: Arc<Mutex<Option<OutputError>>>,
 }
 
@@ -271,7 +271,7 @@ impl Drop for ClockStream {
     }
 }
 
-fn write_wav(path: &Path, frames: u32) {
+pub(crate) fn write_wav(path: &Path, frames: u32) {
     let bytes = frames * 4;
     let mut data = Vec::new();
     data.extend_from_slice(b"RIFF");

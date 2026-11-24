@@ -40,7 +40,7 @@ Start with the assigned issue and [the agent workflow](docs/implementation/AGENT
 
 ## Build and check
 
-Rust 1.99.0 and GPUI Kit 0.9.0 are pinned. On Windows, install Visual Studio 2022 Build Tools with the C++ desktop workload and a Windows SDK, plus CMake. Then, from the repository root:
+Rust 1.99.0 and GPUI Kit 0.11.0 are pinned. On Windows, install Visual Studio 2022 Build Tools with the C++ desktop workload and a Windows SDK, plus CMake. Then, from the repository root:
 
 ```sh
 cargo fmt --all --check

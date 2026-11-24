@@ -1,7 +1,7 @@
 //! Nonblocking queue commands. The worker owns storage, source resolution and engine events.
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod worker;
 
 use std::path::PathBuf;
