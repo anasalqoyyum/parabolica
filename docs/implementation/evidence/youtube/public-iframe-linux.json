@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "command": "pnpm --dir tests/provider-live/youtube probe",
+  "source": {
+    "base": "754984d2f8dad70dc664e6a8a4c85ce85a91faa2",
+    "change": "uncommitted issue #15 browser-route spike; see the branch head for the final implementation"
+  },
+  "environment": {
+    "browser": "Google Chrome 156.0.8078.79",
+    "platform": "linux x64"
+  },
+  "limitations": [
+    "Public embed playback only; no signed-in YouTube Music account was used.",
+    "Player state and position do not prove audible output.",
+    "This does not verify Windows WebView2, native PCM or output-device control."
+  ],
+  "route": "YouTube IFrame Player API in visible Chrome",
+  "testItem": {
+    "videoId": "M7lc1UVf-VE"
+  },
+  "errors": [],
+  "positionAfterSeekSeconds": 10,
+  "states": [
+    { "state": "ready", "at": 1116.1000000238419 },
+    { "state": -1, "at": 5991.5 },
+    { "state": 3, "at": 6002.700000017881 },
+    { "state": 1, "at": 6418 },
+    { "state": 2, "at": 10494.5 }
+  ],
+  "playback": {
+    "durationSeconds": 1343.661,
+    "positionSeconds": 4.09576290272522
+  },
+  "unitTests": {
+    "command": "pnpm --dir tests/provider-live/youtube test",
+    "passed": 11,
+    "failed": 0
+  }
+}
