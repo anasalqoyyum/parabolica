@@ -47,7 +47,7 @@ fn main() {
                 title: Some("Parabolica".into()),
                 ..TitleBar::title_bar_options()
             }),
-            window_bounds: Some(WindowBounds::centered(size(px(1280.), px(860.)), cx)),
+            window_bounds: Some(WindowBounds::centered(None, size(px(1280.), px(860.)), cx)),
             window_min_size: Some(size(px(640.), px(480.))),
             app_id: Some("parabolica".into()),
             ..TitleBar::window_options()

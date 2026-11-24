@@ -7,11 +7,11 @@ This is the workspace layout, the contracts in `parabolica-domain`, and the rule
 | Item | Pin | Where |
 | --- | --- | --- |
 | Rust | 1.99.0, MSVC target on Windows (`x86_64-pc-windows-msvc`) | `rust-toolchain.toml` |
-| GPUI Kit | `gpui-kit =0.9.0` (Apache-2.0) | `Cargo.toml` `[workspace.dependencies]` |
-| GPUI snapshot | `gpui-pre =0.3.11`, required exactly by Kit 0.9.0 | `Cargo.lock` |
+| GPUI Kit | `gpui-kit =0.11.0` (Apache-2.0) | `Cargo.toml` `[workspace.dependencies]` |
+| GPUI snapshot | `gpui-pre =0.3.14`, required exactly by Kit 0.11.0 | `Cargo.lock` |
 | Everything else | Exact versions | `Cargo.lock` |
 
-Kit 0.9.0 requires Rust 1.92 or later. The app depends on `gpui-kit` only and reaches GPUI through `gpui_kit::*`. Do not add `gpui-pre` or another GPUI crate directly; upgrade Kit and its snapshot together.
+Kit 0.11.0 builds with the pinned Rust 1.99.0. The app depends on `gpui-kit` only and reaches GPUI through `gpui_kit::*`. Do not add `gpui-pre` or another GPUI crate directly; upgrade Kit and its snapshot together.
 
 Windows builds need Visual Studio 2022 Build Tools (or Community) with the Desktop development with C++ workload and a Windows SDK, plus CMake on `PATH`. Kit's [installation guide](https://gpui-kit.com/docs/installation/) lists the Linux and macOS packages.
 
@@ -219,13 +219,15 @@ The desktop registers accounts in `ui::accounts::init` and shows them in Setting
 
 **Appearance.** `ui::appearance` owns the saved `AppearanceMode` (preference `appearance.mode`, default Follow system), the last OS appearance and any active high-contrast colors; `ui::theme::apply` maps them onto Kit's theme. Follow system reacts to GPUI's window-appearance notification. Windows does not announce high contrast or animation-effect changes to GPUI, so both are re-read whenever the window becomes active. An active high-contrast theme replaces every color role with Windows system colors. Selections are saved off the UI thread, one write at a time, so the last choice is the one stored.
 
-**Accessibility.** Sidebar and settings navigation use `ui::shell::nav::NavItem`, a focusable list item that reports the current page as selected. Gaps found in Kit 0.9.0 and how the app handles them:
+**Accessibility.** Sidebar and settings navigation use `ui::shell::nav::NavItem`, a focusable list item that reports the current page as selected. Gaps found in Kit 0.9.0 and how the app handles them. The workarounds still work on 0.11.0:
 
 - `SidebarMenuItem` cannot take keyboard focus. `NavItem` replaces it.
 - A focus handle passed to `track_focus` ignores the element's `tab_stop`; create the handle with `cx.focus_handle().tab_stop(true)`.
 - `Button::selected` changes only the presentation. Use list items with `aria_selected` where selection must be announced.
 - `RadioGroup` has no arrow-key movement; each choice is a Tab stop and Space or Enter selects it.
 - AccessKit names a `Role::Label` from its value: use `aria_value`, not `aria_label`, for text that should be read.
+
+In Kit 0.9.0, `Slider` took no keyboard focus and its accessibility Increment and Decrement changed the value without an event. Kit 0.11.0 fixes both, so the player's seek and volume sliders use Kit's `Slider` directly. Each slider is a Tab stop. The arrow keys move it one step, Page Up and Page Down ten steps, and Home and End move it to its ends. AccessKit Increment, Decrement and SetValue, which Narrator and UI Automation `RangeValue` use, move it the same way. Each key press or action emits `SliderEvent::Change` and then `SliderEvent::Release`, so the player seeks or sets the volume once per step.
 
 UI tests in `apps/desktop/src/ui/shell/tests.rs` run the shell in Kit's headless window (`gpui-kit` `test-support`). That feature makes Cargo resolve Kit's optional `gpui-fast` packages, whose exact pins hold `taffy` at 0.15.0, `unicode-properties` at 0.1.3 and `windows-capture` at 1.4.2, the versions in Kit's own lockfile.
 
